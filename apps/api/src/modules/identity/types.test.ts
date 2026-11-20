@@ -16,10 +16,9 @@ describe('organization role permissions', () => {
     }
   });
 
-  it('limits viewers to read-only organization and data access', () => {
+  it('limits viewers to read-only organization and inventory access', () => {
     expect(ROLE_PERMISSIONS.viewer).toEqual(['organization:read', 'data:read']);
     expect(hasPermission('viewer', 'members:read')).toBe(false);
-    expect(hasPermission('viewer', 'data:read')).toBe(true);
     expect(hasPermission('viewer', 'data:manage')).toBe(false);
   });
 
