@@ -39,10 +39,6 @@ const updateSchema = z.object({
 
 const organizationMiddleware = [authenticate, requireOrganizationScope] as const;
 
-function canReadOwnRequest(requestedBy: Types.ObjectId, userId: string) {
-  return requestedBy.toString() === userId;
-}
-
 privacyRequestRouter.get(
   '/organizations/:organizationId/privacy-requests',
   ...organizationMiddleware,
