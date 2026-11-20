@@ -1,0 +1,19 @@
+services:
+  mongodb:
+    image: mongo:8
+    container_name: privaops-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: privaops
+    ports:
+      - "27017:27017"
+    volumes:
+      - privaops_mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  privaops_mongodb_data:
