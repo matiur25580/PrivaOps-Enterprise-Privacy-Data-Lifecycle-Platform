@@ -6,6 +6,7 @@ This module provides an organization-scoped operational workflow for authenticat
 
 - `GET /api/v1/organizations/:organizationId/privacy-requests?page=1&limit=20&status=&requestType=` — owners/admins
 - `POST /api/v1/organizations/:organizationId/privacy-requests` — active members and above
+- `GET /api/v1/organizations/:organizationId/privacy-requests/mine?page=1&limit=20&status=&requestType=` — requesters' own queue
 - `GET /api/v1/organizations/:organizationId/privacy-requests/:requestId` — owners/admins; requesters may read their own
 - `GET /api/v1/organizations/:organizationId/privacy-requests/:requestId/events` — same visibility as the request
 - `PATCH /api/v1/organizations/:organizationId/privacy-requests/:requestId` — owners/admins
