@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { env } from '../../env.js';
 import { Membership, Organization, User } from './models.js';
 import { hasPermission, type OrganizationRole } from './types.js';
+import { organizationScopeMatches } from './scope.js';
 
 const secret = new TextEncoder().encode(env.ACCESS_TOKEN_SECRET);
 
@@ -69,7 +70,7 @@ export function requirePermission(permission: string): RequestHandler {
 
 export const requireOrganizationScope: RequestHandler = (request, response, next) => {
   const organizationId = request.params.organizationId;
-  if (!request.auth || !organizationId || request.auth.organizationId !== organizationId) {
+  if (!organizationScopeMatches(request.auth?.organizationId, organizationId)) {
     response.status(404).json({ error: { code: 'RESOURCE_NOT_FOUND', message: 'The requested organization was not found.' } });
     return;
   }
