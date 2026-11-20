@@ -1,8 +1,8 @@
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
-import pinoHttp from 'pino-http';
 import mongoose from 'mongoose';
+import { pinoHttp } from 'pino-http';
 import { env } from './env.js';
 
 export function createApp() {
