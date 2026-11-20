@@ -1,5 +1,7 @@
 import type { PrivacyRequestStatus } from './models.js';
 
+export type IdentityVerificationStatus = 'pending' | 'verified' | 'failed';
+
 const transitions: Record<PrivacyRequestStatus, readonly PrivacyRequestStatus[]> = {
   submitted: ['identity_verification', 'in_progress', 'withdrawn'],
   identity_verification: ['in_progress', 'awaiting_information', 'rejected', 'withdrawn'],
@@ -16,4 +18,8 @@ export function canTransitionPrivacyRequestStatus(
   next: PrivacyRequestStatus,
 ): boolean {
   return transitions[current].includes(next);
+}
+
+export function canFulfillPrivacyRequest(identityStatus: IdentityVerificationStatus): boolean {
+  return identityStatus === 'verified';
 }
