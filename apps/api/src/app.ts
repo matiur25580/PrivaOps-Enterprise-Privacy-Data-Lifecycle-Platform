@@ -1,17 +1,20 @@
+import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
 import helmet from 'helmet';
 import mongoose from 'mongoose';
 import { pinoHttp } from 'pino-http';
 import { env } from './env.js';
+import { identityRouter } from './modules/identity/routes.js';
 
 export function createApp() {
   const app = express();
 
   app.disable('x-powered-by');
   app.use(helmet());
-  app.use(cors({ origin: env.WEB_ORIGIN }));
+  app.use(cors({ origin: env.WEB_ORIGIN, credentials: true }));
   app.use(express.json({ limit: '1mb' }));
+  app.use(cookieParser());
   app.use(pinoHttp());
 
   app.get('/health/live', (_request, response) => {
@@ -33,6 +36,8 @@ export function createApp() {
       message: 'API foundation is running.',
     });
   });
+
+  app.use('/api/v1', identityRouter);
 
   return app;
 }
