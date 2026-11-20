@@ -1,4 +1,29 @@
-import { Schema, model, models, type Model } from 'mongoose';
+import { Schema, model, models, Types, type Model } from 'mongoose';
+
+interface UserRecord {
+  fullName: string;
+  email: string;
+  passwordHash: string;
+  status: 'active' | 'suspended';
+}
+interface OrganizationRecord {
+  name: string;
+  slug: string;
+  status: 'active' | 'suspended';
+}
+interface MembershipRecord {
+  userId: Types.ObjectId;
+  organizationId: Types.ObjectId;
+  role: 'owner' | 'admin' | 'member' | 'viewer';
+  status: 'active' | 'suspended';
+}
+interface RefreshSessionRecord {
+  userId: Types.ObjectId;
+  organizationId: Types.ObjectId;
+  tokenHash: string;
+  expiresAt: Date;
+  revokedAt: Date | null;
+}
 
 const userSchema = new Schema({
   fullName: { type: String, required: true, trim: true, maxlength: 120 },
@@ -29,9 +54,8 @@ const refreshSessionSchema = new Schema({
   revokedAt: { type: Date, default: null },
 }, { timestamps: true });
 
-// Explicit Model annotations keep the hot-reload registry's Model<any> type
-// from forming an incompatible union with each schema-inferred model type.
-export const User: Model<any> = (models.User as Model<any> | undefined) ?? model('User', userSchema);
-export const Organization: Model<any> = (models.Organization as Model<any> | undefined) ?? model('Organization', organizationSchema);
-export const Membership: Model<any> = (models.Membership as Model<any> | undefined) ?? model('Membership', membershipSchema);
-export const RefreshSession: Model<any> = (models.RefreshSession as Model<any> | undefined) ?? model('RefreshSession', refreshSessionSchema);
+// Explicit document types keep the hot-reload registry and schema model types aligned.
+export const User: Model<UserRecord> = (models.User as Model<UserRecord> | undefined) ?? model<UserRecord>('User', userSchema);
+export const Organization: Model<OrganizationRecord> = (models.Organization as Model<OrganizationRecord> | undefined) ?? model<OrganizationRecord>('Organization', organizationSchema);
+export const Membership: Model<MembershipRecord> = (models.Membership as Model<MembershipRecord> | undefined) ?? model<MembershipRecord>('Membership', membershipSchema);
+export const RefreshSession: Model<RefreshSessionRecord> = (models.RefreshSession as Model<RefreshSessionRecord> | undefined) ?? model<RefreshSessionRecord>('RefreshSession', refreshSessionSchema);
