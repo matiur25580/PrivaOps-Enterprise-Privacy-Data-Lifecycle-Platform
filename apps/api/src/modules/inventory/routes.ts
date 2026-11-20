@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { authenticate, requireOrganizationScope, requirePermission } from '../identity/middleware.js';
-import { DataAsset, ProcessingActivity } from './models.js';
+import { AuditEvent, DataAsset, ProcessingActivity } from './models.js';
+import { tenantScopedFilter } from './tenant-scope.js';
 
 export const inventoryRouter = Router();
 
@@ -43,6 +44,24 @@ function pagination(page: number, limit: number, total: number) {
   return { page, limit, total, pages: Math.ceil(total / limit) };
 }
 
+async function recordInventoryAudit(
+  organizationId: string,
+  actorId: string,
+  action: 'data_asset.created' | 'data_asset.updated' | 'data_asset.archived' | 'processing_activity.created' | 'processing_activity.updated' | 'processing_activity.archived',
+  resourceType: 'data_asset' | 'processing_activity',
+  resourceId: Types.ObjectId | string,
+  changedFields: string[] = [],
+) {
+  await AuditEvent.create({
+    organizationId,
+    actorId,
+    action,
+    resourceType,
+    resourceId: String(resourceId),
+    changedFields,
+  });
+}
+
 const organizationMiddleware = [authenticate, requireOrganizationScope] as const;
 
 inventoryRouter.get('/organizations/:organizationId/data-assets', ...organizationMiddleware, requirePermission('data:read'), async (request, response) => {
@@ -52,7 +71,7 @@ inventoryRouter.get('/organizations/:organizationId/data-assets', ...organizatio
     return;
   }
   const { page, limit, q, status, classification } = parsed.data;
-  const filter: Record<string, unknown> = { organizationId: request.auth!.organizationId };
+  const filter: Record<string, unknown> = tenantScopedFilter(request.auth!.organizationId);
   if (status) filter.status = status;
   if (classification) filter.classification = classification;
   if (q) filter.$or = [{ name: { $regex: escapeRegex(q), $options: 'i' } }, { system: { $regex: escapeRegex(q), $options: 'i' } }, { ownerTeam: { $regex: escapeRegex(q), $options: 'i' } }];
@@ -70,6 +89,7 @@ inventoryRouter.post('/organizations/:organizationId/data-assets', ...organizati
     return;
   }
   const item = await DataAsset.create({ ...parsed.data, organizationId: request.auth!.organizationId, createdBy: request.auth!.userId, updatedBy: request.auth!.userId });
+  await recordInventoryAudit(request.auth!.organizationId, request.auth!.userId, 'data_asset.created', 'data_asset', item._id, Object.keys(parsed.data));
   response.status(201).json({ data: { item } });
 });
 
@@ -81,7 +101,7 @@ inventoryRouter.patch('/organizations/:organizationId/data-assets/:assetId', ...
     return;
   }
   const item = await DataAsset.findOneAndUpdate(
-    { _id: id.data, organizationId: request.auth!.organizationId, status: 'active' },
+    tenantScopedFilter(request.auth!.organizationId, { _id: id.data, status: 'active' }),
     { $set: { ...parsed.data, updatedBy: request.auth!.userId } },
     { new: true, runValidators: true },
   );
@@ -89,6 +109,7 @@ inventoryRouter.patch('/organizations/:organizationId/data-assets/:assetId', ...
     response.status(404).json({ error: { code: 'RESOURCE_NOT_FOUND', message: 'Data asset not found.' } });
     return;
   }
+  await recordInventoryAudit(request.auth!.organizationId, request.auth!.userId, 'data_asset.updated', 'data_asset', item._id, Object.keys(parsed.data));
   response.json({ data: { item } });
 });
 
@@ -99,7 +120,7 @@ inventoryRouter.delete('/organizations/:organizationId/data-assets/:assetId', ..
     return;
   }
   const item = await DataAsset.findOneAndUpdate(
-    { _id: id.data, organizationId: request.auth!.organizationId, status: 'active' },
+    tenantScopedFilter(request.auth!.organizationId, { _id: id.data, status: 'active' }),
     { $set: { status: 'archived', updatedBy: request.auth!.userId } },
     { new: true },
   );
@@ -107,6 +128,8 @@ inventoryRouter.delete('/organizations/:organizationId/data-assets/:assetId', ..
     response.status(404).json({ error: { code: 'RESOURCE_NOT_FOUND', message: 'Data asset not found.' } });
     return;
   }
+  await recordInventoryAudit(request.auth!.organizationId, request.auth!.userId, 'data_asset.archived', 'data_asset', item._id, ['status']);
+  await recordInventoryAudit(request.auth!.organizationId, request.auth!.userId, 'processing_activity.archived', 'processing_activity', item._id, ['status']);
   response.status(204).send();
 });
 
@@ -134,13 +157,14 @@ inventoryRouter.post('/organizations/:organizationId/processing-activities', ...
     return;
   }
   if (parsed.data.assetIds.length) {
-    const count = await DataAsset.countDocuments({ _id: { $in: parsed.data.assetIds }, organizationId: request.auth!.organizationId, status: 'active' });
+    const count = await DataAsset.countDocuments(tenantScopedFilter(request.auth!.organizationId, { _id: { $in: parsed.data.assetIds }, status: 'active' }));
     if (count !== parsed.data.assetIds.length) {
       response.status(400).json({ error: { code: 'INVALID_ASSET_REFERENCE', message: 'One or more data assets are unavailable in this organization.' } });
       return;
     }
   }
   const item = await ProcessingActivity.create({ ...parsed.data, organizationId: request.auth!.organizationId, createdBy: request.auth!.userId, updatedBy: request.auth!.userId });
+  await recordInventoryAudit(request.auth!.organizationId, request.auth!.userId, 'processing_activity.created', 'processing_activity', item._id, Object.keys(parsed.data));
   response.status(201).json({ data: { item } });
 });
 
@@ -159,7 +183,7 @@ inventoryRouter.patch('/organizations/:organizationId/processing-activities/:act
     }
   }
   const item = await ProcessingActivity.findOneAndUpdate(
-    { _id: id.data, organizationId: request.auth!.organizationId, status: { $ne: 'archived' } },
+    tenantScopedFilter(request.auth!.organizationId, { _id: id.data, status: { $ne: 'archived' } }),
     { $set: { ...parsed.data, updatedBy: request.auth!.userId } },
     { new: true, runValidators: true },
   );
@@ -167,6 +191,7 @@ inventoryRouter.patch('/organizations/:organizationId/processing-activities/:act
     response.status(404).json({ error: { code: 'RESOURCE_NOT_FOUND', message: 'Processing activity not found.' } });
     return;
   }
+  await recordInventoryAudit(request.auth!.organizationId, request.auth!.userId, 'processing_activity.updated', 'processing_activity', item._id, Object.keys(parsed.data));
   response.json({ data: { item } });
 });
 
