@@ -2,7 +2,7 @@ import type { RequestHandler } from 'express';
 import { jwtVerify } from 'jose';
 import mongoose from 'mongoose';
 import { env } from '../../env.js';
-import { Membership, User } from './models.js';
+import { Membership, Organization, User } from './models.js';
 import { ROLE_PERMISSIONS, type OrganizationRole } from './types.js';
 
 const secret = new TextEncoder().encode(env.ACCESS_TOKEN_SECRET);
@@ -38,7 +38,7 @@ export const authenticate: RequestHandler = async (request, response, next) => {
   const [user, membership, organization] = await Promise.all([
     User.findOne({ _id: userId, status: 'active' }).select('fullName email').lean(),
     Membership.findOne({ userId, organizationId, status: 'active' }).lean(),
-    mongoose.model('Organization').exists({ _id: organizationId, status: 'active' }),
+    Organization.exists({ _id: organizationId, status: 'active' }),
   ]);
 
   if (!user || !membership || !organization) {
