@@ -119,9 +119,9 @@ export default function App() {
     <aside className="sidebar"><a className="brand" href="#"><span className="brand-mark">P</span>PrivaOps</a>
       <div className="workspace"><strong>{session.organization.name}</strong><small>{session.organization.role} workspace</small></div>
       <p className="nav-label">WORKSPACE</p><nav>
-        <button className={tab === 'overview' ? 'selected' : ''} onClick={() => setTab('overview')}>◫　Overview</button>
-        <button className={tab === 'assets' ? 'selected' : ''} onClick={() => setTab('assets')}>▤　Data inventory</button>
-        <button className={tab === 'requests' ? 'selected' : ''} onClick={() => setTab('requests')}>◎　Privacy requests</button>
+        <button className={tab === 'overview' ? 'selected' : ''} onClick={() => setTab('overview')}>◫ Overview</button>
+        <button className={tab === 'assets' ? 'selected' : ''} onClick={() => setTab('assets')}>▤ Data inventory</button>
+        <button className={tab === 'requests' ? 'selected' : ''} onClick={() => setTab('requests')}>◎ Privacy requests</button>
       </nav><div className="sidebar-bottom"><small>✳ Secure organization workspace</small><button className="signout" onClick={() => void signOut()}>↗ Sign out</button></div>
     </aside>
     <section className="main-panel"><header className="page-header"><div><p className="eyebrow">PRIVACY OPERATIONS / {tab.toUpperCase()}</p><h1>{tab === 'overview' ? 'Workspace overview' : tab === 'assets' ? 'Data inventory' : 'Privacy requests'}</h1></div><div className="profile"><span>{session.user.fullName.slice(0, 1).toUpperCase()}</span><div><strong>{session.user.fullName}</strong><small>{session.user.email}</small></div></div></header>
