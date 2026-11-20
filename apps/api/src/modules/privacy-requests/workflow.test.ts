@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canTransitionPrivacyRequestStatus } from './workflow.js';
+import { canFulfillPrivacyRequest, canTransitionPrivacyRequestStatus } from './workflow.js';
 
 describe('privacy request lifecycle', () => {
   it('allows the expected operational transitions', () => {
@@ -19,5 +19,11 @@ describe('privacy request lifecycle', () => {
     expect(canTransitionPrivacyRequestStatus('rejected', 'closed')).toBe(true);
     expect(canTransitionPrivacyRequestStatus('withdrawn', 'closed')).toBe(true);
     expect(canTransitionPrivacyRequestStatus('closed', 'closed')).toBe(false);
+  });
+
+  it('requires verified identity before fulfillment', () => {
+    expect(canFulfillPrivacyRequest('pending')).toBe(false);
+    expect(canFulfillPrivacyRequest('failed')).toBe(false);
+    expect(canFulfillPrivacyRequest('verified')).toBe(true);
   });
 });
