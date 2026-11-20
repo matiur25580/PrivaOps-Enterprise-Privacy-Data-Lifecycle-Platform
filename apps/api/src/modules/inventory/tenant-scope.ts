@@ -1,6 +1,4 @@
-export function organizationScopeMatches(authOrganizationId: string | undefined, routeOrganizationId: string | undefined): boolean {
-  return Boolean(authOrganizationId && routeOrganizationId && authOrganizationId === routeOrganizationId);
-}
+export { organizationScopeMatches } from '../identity/scope.js';
 
 export function tenantScopedFilter(
   organizationId: string,
