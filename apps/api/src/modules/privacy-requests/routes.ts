@@ -30,6 +30,7 @@ const createSchema = z.object({
 });
 const updateSchema = z.object({
   status: statusSchema.optional(),
+  identityVerificationStatus: z.enum(['pending', 'verified', 'failed']).optional(),
   assignedTo: idSchema.nullable().optional(),
   dueAt: z.coerce.date().nullable().optional(),
   resolutionSummary: z.string().trim().max(2000).optional(),
@@ -165,6 +166,14 @@ privacyRequestRouter.patch(
     });
     if (!current) {
       response.status(404).json({ error: { code: 'RESOURCE_NOT_FOUND', message: 'Privacy request not found.' } });
+      return;
+    }
+    if (parsed.data.status === 'fulfilled' && !(parsed.data.resolutionSummary ?? current.resolutionSummary).trim()) {
+      response.status(400).json({ error: { code: 'RESOLUTION_REQUIRED', message: 'Add a resolution summary before fulfilling a request.' } });
+      return;
+    }
+    if (parsed.data.status === 'rejected' && !(parsed.data.rejectionReason ?? current.rejectionReason).trim()) {
+      response.status(400).json({ error: { code: 'REJECTION_REASON_REQUIRED', message: 'Add a rejection reason before rejecting a request.' } });
       return;
     }
     if (parsed.data.status && !canTransitionPrivacyRequestStatus(current.status, parsed.data.status as PrivacyRequestStatus)) {
