@@ -129,7 +129,6 @@ inventoryRouter.delete('/organizations/:organizationId/data-assets/:assetId', ..
     return;
   }
   await recordInventoryAudit(request.auth!.organizationId, request.auth!.userId, 'data_asset.archived', 'data_asset', item._id, ['status']);
-  await recordInventoryAudit(request.auth!.organizationId, request.auth!.userId, 'processing_activity.archived', 'processing_activity', item._id, ['status']);
   response.status(204).send();
 });
 
@@ -210,5 +209,6 @@ inventoryRouter.delete('/organizations/:organizationId/processing-activities/:ac
     response.status(404).json({ error: { code: 'RESOURCE_NOT_FOUND', message: 'Processing activity not found.' } });
     return;
   }
+  await recordInventoryAudit(request.auth!.organizationId, request.auth!.userId, 'processing_activity.archived', 'processing_activity', item._id, ['status']);
   response.status(204).send();
 });
