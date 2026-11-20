@@ -27,6 +27,14 @@ interface ProcessingActivityRecord {
   createdBy: Types.ObjectId;
   updatedBy: Types.ObjectId;
 }
+interface AuditEventRecord {
+  organizationId: Types.ObjectId;
+  actorId: Types.ObjectId;
+  action: 'data_asset.created' | 'data_asset.updated' | 'data_asset.archived' | 'processing_activity.created' | 'processing_activity.updated' | 'processing_activity.archived';
+  resourceType: 'data_asset' | 'processing_activity';
+  resourceId: string;
+  changedFields: string[];
+}
 
 const dataAssetSchema = new Schema({
   organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
@@ -64,3 +72,17 @@ processingActivitySchema.index({ organizationId: 1, status: 1 });
 // Explicit document types keep the hot-reload registry and schema model types aligned.
 export const DataAsset: Model<DataAssetRecord> = (models.DataAsset as Model<DataAssetRecord> | undefined) ?? model<DataAssetRecord>('DataAsset', dataAssetSchema);
 export const ProcessingActivity: Model<ProcessingActivityRecord> = (models.ProcessingActivity as Model<ProcessingActivityRecord> | undefined) ?? model<ProcessingActivityRecord>('ProcessingActivity', processingActivitySchema);
+
+
+// Append-only operational history; keep event metadata free of personal-data values.
+const auditEventSchema = new Schema({
+  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
+  actorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  action: { type: String, enum: ['data_asset.created', 'data_asset.updated', 'data_asset.archived', 'processing_activity.created', 'processing_activity.updated', 'processing_activity.archived'], required: true },
+  resourceType: { type: String, enum: ['data_asset', 'processing_activity'], required: true },
+  resourceId: { type: String, required: true, maxlength: 64 },
+  changedFields: [{ type: String, maxlength: 80 }],
+}, { timestamps: true, versionKey: false });
+auditEventSchema.index({ organizationId: 1, createdAt: -1 });
+auditEventSchema.index({ organizationId: 1, resourceType: 1, resourceId: 1 });
+export const AuditEvent: Model<AuditEventRecord> = (models.AuditEvent as Model<AuditEventRecord> | undefined) ?? model<AuditEventRecord>('AuditEvent', auditEventSchema);
