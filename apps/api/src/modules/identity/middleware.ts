@@ -3,7 +3,7 @@ import { jwtVerify } from 'jose';
 import mongoose from 'mongoose';
 import { env } from '../../env.js';
 import { Membership, Organization, User } from './models.js';
-import { ROLE_PERMISSIONS, type OrganizationRole } from './types.js';
+import { hasPermission, type OrganizationRole } from './types.js';
 
 const secret = new TextEncoder().encode(env.ACCESS_TOKEN_SECRET);
 
@@ -59,7 +59,7 @@ export const authenticate: RequestHandler = async (request, response, next) => {
 export function requirePermission(permission: string): RequestHandler {
   return (request, response, next) => {
     const role = request.auth?.role;
-    if (!role || !ROLE_PERMISSIONS[role].includes(permission)) {
+    if (!role || !hasPermission(role, permission)) {
       response.status(403).json({ error: { code: 'FORBIDDEN', message: 'You do not have permission to perform this action.' } });
       return;
     }
