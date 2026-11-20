@@ -1,4 +1,32 @@
-import { Schema, model, models, type Model } from 'mongoose';
+import { Schema, model, models, Types, type Model } from 'mongoose';
+
+interface DataAssetRecord {
+  organizationId: Types.ObjectId;
+  name: string;
+  description: string;
+  system: string;
+  ownerTeam: string;
+  classification: 'public' | 'internal' | 'confidential' | 'restricted';
+  dataCategories: string[];
+  dataSubjects: string[];
+  status: 'active' | 'archived';
+  createdBy: Types.ObjectId;
+  updatedBy: Types.ObjectId;
+}
+interface ProcessingActivityRecord {
+  organizationId: Types.ObjectId;
+  name: string;
+  purpose: string;
+  legalBasis: 'consent' | 'contract' | 'legal_obligation' | 'legitimate_use' | 'public_function' | 'other';
+  dataCategories: string[];
+  dataSubjects: string[];
+  systems: string[];
+  assetIds: Types.ObjectId[];
+  retentionPeriodDays: number | null;
+  status: 'active' | 'under_review' | 'archived';
+  createdBy: Types.ObjectId;
+  updatedBy: Types.ObjectId;
+}
 
 const dataAssetSchema = new Schema({
   organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
@@ -33,6 +61,6 @@ const processingActivitySchema = new Schema({
 processingActivitySchema.index({ organizationId: 1, name: 1 });
 processingActivitySchema.index({ organizationId: 1, status: 1 });
 
-// Keep the hot-reload registry and newly compiled model types consistent.
-export const DataAsset: Model<any> = (models.DataAsset as Model<any> | undefined) ?? model('DataAsset', dataAssetSchema);
-export const ProcessingActivity: Model<any> = (models.ProcessingActivity as Model<any> | undefined) ?? model('ProcessingActivity', processingActivitySchema);
+// Explicit document types keep the hot-reload registry and schema model types aligned.
+export const DataAsset: Model<DataAssetRecord> = (models.DataAsset as Model<DataAssetRecord> | undefined) ?? model<DataAssetRecord>('DataAsset', dataAssetSchema);
+export const ProcessingActivity: Model<ProcessingActivityRecord> = (models.ProcessingActivity as Model<ProcessingActivityRecord> | undefined) ?? model<ProcessingActivityRecord>('ProcessingActivity', processingActivitySchema);
