@@ -140,7 +140,7 @@ inventoryRouter.get('/organizations/:organizationId/processing-activities', ...o
     return;
   }
   const { page, limit, q, status } = parsed.data;
-  const filter: Record<string, unknown> = { organizationId: request.auth!.organizationId };
+  const filter: Record<string, unknown> = tenantScopedFilter(request.auth!.organizationId);
   if (status) filter.status = status;
   if (q) filter.$or = [{ name: { $regex: escapeRegex(q), $options: 'i' } }, { purpose: { $regex: escapeRegex(q), $options: 'i' } }];
   const [items, total] = await Promise.all([
@@ -176,7 +176,7 @@ inventoryRouter.patch('/organizations/:organizationId/processing-activities/:act
     return;
   }
   if (parsed.data.assetIds?.length) {
-    const count = await DataAsset.countDocuments({ _id: { $in: parsed.data.assetIds }, organizationId: request.auth!.organizationId, status: 'active' });
+    const count = await DataAsset.countDocuments(tenantScopedFilter(request.auth!.organizationId, { _id: { $in: parsed.data.assetIds }, status: 'active' }));
     if (count !== parsed.data.assetIds.length) {
       response.status(400).json({ error: { code: 'INVALID_ASSET_REFERENCE', message: 'One or more data assets are unavailable in this organization.' } });
       return;
@@ -202,7 +202,7 @@ inventoryRouter.delete('/organizations/:organizationId/processing-activities/:ac
     return;
   }
   const item = await ProcessingActivity.findOneAndUpdate(
-    { _id: id.data, organizationId: request.auth!.organizationId, status: { $ne: 'archived' } },
+    tenantScopedFilter(request.auth!.organizationId, { _id: id.data, status: { $ne: 'archived' } }),
     { $set: { status: 'archived', updatedBy: request.auth!.userId } },
     { new: true },
   );
