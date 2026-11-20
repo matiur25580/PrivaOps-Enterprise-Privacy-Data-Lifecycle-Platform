@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   quality:
-    name: Install, lint, typecheck, and build
+    name: Install, lint, typecheck, test, and build
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -25,5 +25,7 @@ jobs:
         run: npm run lint
       - name: Typecheck
         run: npm run typecheck
+      - name: Unit tests
+        run: npm run test
       - name: Build
         run: npm run build
