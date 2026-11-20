@@ -28,5 +28,7 @@ A processing activity records its purpose, legal-basis classification, systems, 
 - Owners and admins can manage records; members and viewers have read-only access.
 - List endpoints cap page size at 100 and escape search input before constructing regular expressions.
 - Deletes are soft archives to preserve lifecycle context.
+- Every successful create, update, and archive writes an append-only audit event containing the organization, actor, resource, action, and changed field names (never field values).
+- Tenant-scope helpers are covered by tests for organization mismatch and attempts to override the server-derived organization filter.
 
 The legal-basis field is an operational classification, not a legal conclusion. Teams must validate the applicable basis and retention requirements with qualified counsel.
