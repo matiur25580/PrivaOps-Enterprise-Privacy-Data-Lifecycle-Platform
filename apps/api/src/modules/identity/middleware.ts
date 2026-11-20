@@ -69,7 +69,8 @@ export function requirePermission(permission: string): RequestHandler {
 }
 
 export const requireOrganizationScope: RequestHandler = (request, response, next) => {
-  const organizationId = request.params.organizationId;
+  const organizationParam = request.params.organizationId;
+  const organizationId = typeof organizationParam === 'string' ? organizationParam : undefined;
   if (!organizationScopeMatches(request.auth?.organizationId, organizationId)) {
     response.status(404).json({ error: { code: 'RESOURCE_NOT_FOUND', message: 'The requested organization was not found.' } });
     return;
