@@ -36,6 +36,7 @@ const loginSchema = z.object({
 type SafeUser = { _id: Types.ObjectId; fullName: string; email: string };
 type PopulatedMembership = {
   role: OrganizationRole;
+  createdAt: Date;
   organizationId: { _id: Types.ObjectId; name: string; slug: string; status: string } | null;
 };
 
