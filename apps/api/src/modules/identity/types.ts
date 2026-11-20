@@ -15,7 +15,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly string[]> = {
   ],
   admin: [
     'organization:read', 'organization:manage', 'members:read', 'members:manage',
-    'data:read', 'data:manage', 'privacy_requests:read', 'privacy_requests:manage',
+    'data:read', 'data:manage', 'privacy_requests:create', 'privacy_requests:read', 'privacy_requests:manage',
   ],
   member: [
     'organization:read', 'members:read', 'data:read',
