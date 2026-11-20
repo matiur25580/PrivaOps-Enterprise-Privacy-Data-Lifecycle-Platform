@@ -1,4 +1,4 @@
-import { Schema, model, models } from 'mongoose';
+import { Schema, model, models, type Model } from 'mongoose';
 
 const dataAssetSchema = new Schema({
   organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
@@ -33,5 +33,6 @@ const processingActivitySchema = new Schema({
 processingActivitySchema.index({ organizationId: 1, name: 1 });
 processingActivitySchema.index({ organizationId: 1, status: 1 });
 
-export const DataAsset = models.DataAsset || model('DataAsset', dataAssetSchema);
-export const ProcessingActivity = models.ProcessingActivity || model('ProcessingActivity', processingActivitySchema);
+// Keep the hot-reload registry and newly compiled model types consistent.
+export const DataAsset: Model<any> = (models.DataAsset as Model<any> | undefined) ?? model('DataAsset', dataAssetSchema);
+export const ProcessingActivity: Model<any> = (models.ProcessingActivity as Model<any> | undefined) ?? model('ProcessingActivity', processingActivitySchema);
