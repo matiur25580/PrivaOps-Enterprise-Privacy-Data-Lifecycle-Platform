@@ -1,4 +1,4 @@
-import { Schema, model, models } from 'mongoose';
+import { Schema, model, models, type Model } from 'mongoose';
 
 const userSchema = new Schema({
   fullName: { type: String, required: true, trim: true, maxlength: 120 },
@@ -29,7 +29,9 @@ const refreshSessionSchema = new Schema({
   revokedAt: { type: Date, default: null },
 }, { timestamps: true });
 
-export const User = models.User || model('User', userSchema);
-export const Organization = models.Organization || model('Organization', organizationSchema);
-export const Membership = models.Membership || model('Membership', membershipSchema);
-export const RefreshSession = models.RefreshSession || model('RefreshSession', refreshSessionSchema);
+// Explicit Model annotations keep the hot-reload registry's Model<any> type
+// from forming an incompatible union with each schema-inferred model type.
+export const User: Model<any> = (models.User as Model<any> | undefined) ?? model('User', userSchema);
+export const Organization: Model<any> = (models.Organization as Model<any> | undefined) ?? model('Organization', organizationSchema);
+export const Membership: Model<any> = (models.Membership as Model<any> | undefined) ?? model('Membership', membershipSchema);
+export const RefreshSession: Model<any> = (models.RefreshSession as Model<any> | undefined) ?? model('RefreshSession', refreshSessionSchema);
