@@ -157,14 +157,15 @@ identityRouter.post('/auth/refresh', async (request, response) => {
     return;
   }
 
-  const session = await RefreshSession.findOne({
+  // Atomically consume the old token so parallel refresh requests cannot both succeed.
+  const session = await RefreshSession.findOneAndDelete({
     tokenHash: hashRefreshToken(rawToken),
     revokedAt: null,
     expiresAt: { $gt: new Date() },
   });
   if (!session) {
     response.clearCookie('privaops_refresh', getRefreshCookieOptions());
-    response.status(401).json({ error: { code: 'INVALID_REFRESH', message: 'The refresh session is invalid or expired.' } });
+    response.status(401).json({ error: { code: 'INVALID_REFRESH', message: 'The refresh session is invalid, expired, or already used.' } });
     return;
   }
 
@@ -174,13 +175,11 @@ identityRouter.post('/auth/refresh', async (request, response) => {
     Organization.findOne({ _id: session.organizationId, status: 'active' }),
   ]);
   if (!user || !membership || !organization) {
-    await RefreshSession.deleteOne({ _id: session._id });
     response.clearCookie('privaops_refresh', getRefreshCookieOptions());
     response.status(401).json({ error: { code: 'ACCESS_REVOKED', message: 'The account or organization access is inactive.' } });
     return;
   }
 
-  await RefreshSession.deleteOne({ _id: session._id });
   const tokens = await issueSession(String(user._id), String(organization._id), response);
   response.status(200).json({ data: tokens });
 });
