@@ -16,6 +16,8 @@ interface MembershipRecord {
   organizationId: Types.ObjectId;
   role: 'owner' | 'admin' | 'member' | 'viewer';
   status: 'active' | 'suspended';
+  createdAt: Date;
+  updatedAt: Date;
 }
 interface RefreshSessionRecord {
   userId: Types.ObjectId;
