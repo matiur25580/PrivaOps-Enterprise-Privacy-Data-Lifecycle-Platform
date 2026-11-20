@@ -5,7 +5,7 @@ import { authenticate, requireOrganizationScope, requirePermission } from '../id
 import { hasPermission } from '../identity/types.js';
 import { Membership } from '../identity/models.js';
 import { PrivacyRequest, PrivacyRequestEvent, type PrivacyRequestStatus } from './models.js';
-import { canTransitionPrivacyRequestStatus } from './workflow.js';
+import { canFulfillPrivacyRequest, canTransitionPrivacyRequestStatus } from './workflow.js';
 
 export const privacyRequestRouter = Router();
 
@@ -230,6 +230,11 @@ privacyRequestRouter.patch(
     });
     if (!current) {
       response.status(404).json({ error: { code: 'RESOURCE_NOT_FOUND', message: 'Privacy request not found.' } });
+      return;
+    }
+    const identityStatus = parsed.data.identityVerificationStatus ?? current.identityVerificationStatus;
+    if (parsed.data.status === 'fulfilled' && !canFulfillPrivacyRequest(identityStatus)) {
+      response.status(409).json({ error: { code: 'IDENTITY_VERIFICATION_REQUIRED', message: 'Verify the requester\'s identity before fulfilling this request.' } });
       return;
     }
     if (parsed.data.status === 'fulfilled' && !(parsed.data.resolutionSummary ?? current.resolutionSummary).trim()) {
