@@ -7,6 +7,7 @@ import { pinoHttp } from 'pino-http';
 import { env } from './env.js';
 import { identityRouter } from './modules/identity/routes.js';
 import { inventoryRouter } from './modules/inventory/routes.js';
+import { privacyRequestRouter } from './modules/privacy-requests/routes.js';
 
 export function createApp() {
   const app = express();
@@ -40,6 +41,7 @@ export function createApp() {
 
   app.use('/api/v1', identityRouter);
   app.use('/api/v1', inventoryRouter);
+  app.use('/api/v1', privacyRequestRouter);
 
   return app;
 }
