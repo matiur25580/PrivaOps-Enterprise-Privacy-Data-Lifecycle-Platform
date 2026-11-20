@@ -15,6 +15,8 @@ const listSchema = z.object({
   status: z.string().optional(),
   classification: z.enum(['public', 'internal', 'confidential', 'restricted']).optional(),
 });
+const assetListSchema = listSchema.extend({ status: z.enum(['active', 'archived']).optional() });
+const activityListSchema = listSchema.omit({ classification: true }).extend({ status: z.enum(['active', 'under_review', 'archived']).optional() });
 const assetSchema = z.object({
   name: z.string().trim().min(2).max(160),
   description: z.string().trim().max(2000).default(''),
@@ -33,8 +35,8 @@ const activitySchema = z.object({
   systems: z.array(z.string().trim().min(1).max(160)).max(30).default([]),
   assetIds: z.array(idSchema).max(100).default([]),
   retentionPeriodDays: z.number().int().min(1).max(36500).nullable().default(null),
-  status: z.enum(['active', 'under_review', 'archived']).default('active'),
 });
+const activityUpdateSchema = activitySchema.partial().extend({ status: z.enum(['active', 'under_review']).optional() });
 
 function escapeRegex(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -65,7 +67,7 @@ async function recordInventoryAudit(
 const organizationMiddleware = [authenticate, requireOrganizationScope] as const;
 
 inventoryRouter.get('/organizations/:organizationId/data-assets', ...organizationMiddleware, requirePermission('data:read'), async (request, response) => {
-  const parsed = listSchema.safeParse(request.query);
+  const parsed = assetListSchema.safeParse(request.query);
   if (!parsed.success) {
     response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid list filters.', details: parsed.error.flatten() } });
     return;
@@ -133,7 +135,7 @@ inventoryRouter.delete('/organizations/:organizationId/data-assets/:assetId', ..
 });
 
 inventoryRouter.get('/organizations/:organizationId/processing-activities', ...organizationMiddleware, requirePermission('data:read'), async (request, response) => {
-  const parsed = listSchema.omit({ classification: true }).safeParse(request.query);
+  const parsed = activityListSchema.safeParse(request.query);
   if (!parsed.success) {
     response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid list filters.', details: parsed.error.flatten() } });
     return;
@@ -169,7 +171,7 @@ inventoryRouter.post('/organizations/:organizationId/processing-activities', ...
 
 inventoryRouter.patch('/organizations/:organizationId/processing-activities/:activityId', ...organizationMiddleware, requirePermission('data:manage'), async (request, response) => {
   const id = idSchema.safeParse(request.params.activityId);
-  const parsed = activitySchema.partial().safeParse(request.body);
+  const parsed = activityUpdateSchema.safeParse(request.body);
   if (!id.success || !parsed.success || Object.keys(parsed.data).length === 0) {
     response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Provide a valid activity identifier and at least one valid field.' } });
     return;
