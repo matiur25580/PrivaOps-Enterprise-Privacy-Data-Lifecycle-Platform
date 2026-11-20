@@ -9,6 +9,7 @@ This module provides an organization-scoped operational workflow for authenticat
 - `GET /api/v1/organizations/:organizationId/privacy-requests/mine?page=1&limit=20&status=&requestType=` — requesters' own queue
 - `GET /api/v1/organizations/:organizationId/privacy-requests/:requestId` — owners/admins; requesters may read their own
 - `GET /api/v1/organizations/:organizationId/privacy-requests/:requestId/events` — same visibility as the request
+- `POST /api/v1/organizations/:organizationId/privacy-requests/:requestId/withdraw` — request owner; only before a terminal outcome
 - `PATCH /api/v1/organizations/:organizationId/privacy-requests/:requestId` — owners/admins
 
 Supported request types: access, correction, erasure, portability, withdraw consent, restriction, objection, and other.
