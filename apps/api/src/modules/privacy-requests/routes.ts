@@ -170,6 +170,49 @@ privacyRequestRouter.get(
   },
 );
 
+privacyRequestRouter.post(
+  '/organizations/:organizationId/privacy-requests/:requestId/withdraw',
+  ...organizationMiddleware,
+  requirePermission('privacy_requests:create'),
+  async (request, response) => {
+    const id = idSchema.safeParse(request.params.requestId);
+    if (!id.success) {
+      response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid privacy request identifier.' } });
+      return;
+    }
+    const current = await PrivacyRequest.findOne({
+      _id: id.data,
+      organizationId: request.auth!.organizationId,
+      requestedBy: request.auth!.userId,
+    });
+    if (!current) {
+      response.status(404).json({ error: { code: 'RESOURCE_NOT_FOUND', message: 'Privacy request not found.' } });
+      return;
+    }
+    if (!canTransitionPrivacyRequestStatus(current.status, 'withdrawn')) {
+      response.status(409).json({ error: { code: 'INVALID_STATUS_TRANSITION', message: 'This request can no longer be withdrawn.' } });
+      return;
+    }
+    const updated = await PrivacyRequest.findOneAndUpdate(
+      { _id: id.data, organizationId: request.auth!.organizationId, requestedBy: request.auth!.userId, status: current.status },
+      { $set: { status: 'withdrawn' } },
+      { new: true, runValidators: true },
+    );
+    if (!updated) {
+      response.status(409).json({ error: { code: 'CONCURRENT_UPDATE', message: 'The request changed while you were withdrawing it. Reload and retry.' } });
+      return;
+    }
+    await PrivacyRequestEvent.create({
+      organizationId: request.auth!.organizationId,
+      requestId: updated._id,
+      actorId: request.auth!.userId,
+      action: 'status_changed',
+      changedFields: ['status'],
+    });
+    response.json({ data: { item: updated } });
+  },
+);
+
 privacyRequestRouter.patch(
   '/organizations/:organizationId/privacy-requests/:requestId',
   ...organizationMiddleware,
