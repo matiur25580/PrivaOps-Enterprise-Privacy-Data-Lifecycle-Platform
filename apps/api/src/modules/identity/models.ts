@@ -1,4 +1,31 @@
-import { Schema, model, models } from 'mongoose';
+import { Schema, model, models, Types, type Model } from 'mongoose';
+
+interface UserRecord {
+  fullName: string;
+  email: string;
+  passwordHash: string;
+  status: 'active' | 'suspended';
+}
+interface OrganizationRecord {
+  name: string;
+  slug: string;
+  status: 'active' | 'suspended';
+}
+interface MembershipRecord {
+  userId: Types.ObjectId;
+  organizationId: Types.ObjectId;
+  role: 'owner' | 'admin' | 'member' | 'viewer';
+  status: 'active' | 'suspended';
+  createdAt: Date;
+  updatedAt: Date;
+}
+interface RefreshSessionRecord {
+  userId: Types.ObjectId;
+  organizationId: Types.ObjectId;
+  tokenHash: string;
+  expiresAt: Date;
+  revokedAt: Date | null;
+}
 
 const userSchema = new Schema({
   fullName: { type: String, required: true, trim: true, maxlength: 120 },
@@ -29,7 +56,8 @@ const refreshSessionSchema = new Schema({
   revokedAt: { type: Date, default: null },
 }, { timestamps: true });
 
-export const User = models.User || model('User', userSchema);
-export const Organization = models.Organization || model('Organization', organizationSchema);
-export const Membership = models.Membership || model('Membership', membershipSchema);
-export const RefreshSession = models.RefreshSession || model('RefreshSession', refreshSessionSchema);
+// Explicit document types keep the hot-reload registry and schema model types aligned.
+export const User: Model<UserRecord> = (models.User as Model<UserRecord> | undefined) ?? model<UserRecord>('User', userSchema);
+export const Organization: Model<OrganizationRecord> = (models.Organization as Model<OrganizationRecord> | undefined) ?? model<OrganizationRecord>('Organization', organizationSchema);
+export const Membership: Model<MembershipRecord> = (models.Membership as Model<MembershipRecord> | undefined) ?? model<MembershipRecord>('Membership', membershipSchema);
+export const RefreshSession: Model<RefreshSessionRecord> = (models.RefreshSession as Model<RefreshSessionRecord> | undefined) ?? model<RefreshSessionRecord>('RefreshSession', refreshSessionSchema);
