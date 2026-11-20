@@ -88,6 +88,31 @@ privacyRequestRouter.post(
 );
 
 privacyRequestRouter.get(
+  '/organizations/:organizationId/privacy-requests/mine',
+  ...organizationMiddleware,
+  requirePermission('privacy_requests:read_own'),
+  async (request, response) => {
+    const parsed = listSchema.safeParse(request.query);
+    if (!parsed.success) {
+      response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid privacy request filters.', details: parsed.error.flatten() } });
+      return;
+    }
+    const { page, limit, status, requestType } = parsed.data;
+    const filter: Record<string, unknown> = {
+      organizationId: request.auth!.organizationId,
+      requestedBy: request.auth!.userId,
+    };
+    if (status) filter.status = status;
+    if (requestType) filter.requestType = requestType;
+    const [items, total] = await Promise.all([
+      PrivacyRequest.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      PrivacyRequest.countDocuments(filter),
+    ]);
+    response.json({ data: { items, pagination: { page, limit, total, pages: Math.ceil(total / limit) } } });
+  },
+);
+
+privacyRequestRouter.get(
   '/organizations/:organizationId/privacy-requests/:requestId',
   ...organizationMiddleware,
   async (request, response) => {
