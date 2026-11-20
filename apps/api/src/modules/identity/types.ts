@@ -9,10 +9,10 @@ export interface AuthContext {
 }
 
 export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly string[]> = {
-  owner: ['organization:read', 'organization:manage', 'members:read', 'members:manage'],
-  admin: ['organization:read', 'organization:manage', 'members:read', 'members:manage'],
-  member: ['organization:read', 'members:read'],
-  viewer: ['organization:read'],
+  owner: ['organization:read', 'organization:manage', 'members:read', 'members:manage', 'data:read', 'data:manage'],
+  admin: ['organization:read', 'organization:manage', 'members:read', 'members:manage', 'data:read', 'data:manage'],
+  member: ['organization:read', 'members:read', 'data:read'],
+  viewer: ['organization:read', 'data:read'],
 };
 
 export function hasPermission(role: OrganizationRole, permission: string): boolean {
