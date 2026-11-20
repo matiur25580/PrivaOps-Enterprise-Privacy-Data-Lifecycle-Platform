@@ -6,6 +6,7 @@ import mongoose from 'mongoose';
 import { pinoHttp } from 'pino-http';
 import { env } from './env.js';
 import { identityRouter } from './modules/identity/routes.js';
+import { inventoryRouter } from './modules/inventory/routes.js';
 
 export function createApp() {
   const app = express();
@@ -38,6 +39,7 @@ export function createApp() {
   });
 
   app.use('/api/v1', identityRouter);
+  app.use('/api/v1', inventoryRouter);
 
   return app;
 }
