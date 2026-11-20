@@ -1,0 +1,37 @@
+import { Schema, model, models } from 'mongoose';
+
+const dataAssetSchema = new Schema({
+  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
+  name: { type: String, required: true, trim: true, maxlength: 160 },
+  description: { type: String, trim: true, maxlength: 2000, default: '' },
+  system: { type: String, required: true, trim: true, maxlength: 160 },
+  ownerTeam: { type: String, required: true, trim: true, maxlength: 120 },
+  classification: { type: String, enum: ['public', 'internal', 'confidential', 'restricted'], required: true },
+  dataCategories: [{ type: String, trim: true, maxlength: 80 }],
+  dataSubjects: [{ type: String, trim: true, maxlength: 80 }],
+  status: { type: String, enum: ['active', 'archived'], default: 'active', index: true },
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  updatedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+}, { timestamps: true });
+dataAssetSchema.index({ organizationId: 1, name: 1 });
+dataAssetSchema.index({ organizationId: 1, status: 1, classification: 1 });
+
+const processingActivitySchema = new Schema({
+  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
+  name: { type: String, required: true, trim: true, maxlength: 160 },
+  purpose: { type: String, required: true, trim: true, maxlength: 1000 },
+  legalBasis: { type: String, required: true, enum: ['consent', 'contract', 'legal_obligation', 'legitimate_use', 'public_function', 'other'] },
+  dataCategories: [{ type: String, trim: true, maxlength: 80 }],
+  dataSubjects: [{ type: String, trim: true, maxlength: 80 }],
+  systems: [{ type: String, trim: true, maxlength: 160 }],
+  assetIds: [{ type: Schema.Types.ObjectId, ref: 'DataAsset' }],
+  retentionPeriodDays: { type: Number, min: 1, max: 36500, default: null },
+  status: { type: String, enum: ['active', 'under_review', 'archived'], default: 'active', index: true },
+  createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  updatedBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+}, { timestamps: true });
+processingActivitySchema.index({ organizationId: 1, name: 1 });
+processingActivitySchema.index({ organizationId: 1, status: 1 });
+
+export const DataAsset = models.DataAsset || model('DataAsset', dataAssetSchema);
+export const ProcessingActivity = models.ProcessingActivity || model('ProcessingActivity', processingActivitySchema);
