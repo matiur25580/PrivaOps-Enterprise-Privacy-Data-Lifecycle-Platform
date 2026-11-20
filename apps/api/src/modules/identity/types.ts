@@ -14,3 +14,7 @@ export const ROLE_PERMISSIONS: Record<OrganizationRole, readonly string[]> = {
   member: ['organization:read', 'members:read'],
   viewer: ['organization:read'],
 };
+
+export function hasPermission(role: OrganizationRole, permission: string): boolean {
+  return ROLE_PERMISSIONS[role].includes(permission);
+}
