@@ -20,7 +20,8 @@ This document describes the current engineering controls and the remaining work.
 | Tenant A → tenant B | IDOR / cross-tenant reads and writes | Organization-scoped filters and same-tenant reference validation |
 | User role → action | Privilege escalation | Server-side explicit permission matrix |
 | Browser session | Token theft from persistent browser storage | Access token kept in memory; refresh token in HttpOnly cookie |
-| MFA recovery | Recovery-code database disclosure or replay | 128-bit random codes, SHA-256 hashes at rest, and atomic one-time consumption |\n| Email action links | Token theft, replay, or database disclosure | 256-bit random tokens, SHA-256 hashes at rest, 30-minute expiry, one-time consumption, and refresh-session revocation on password reset |
+| MFA recovery | Recovery-code database disclosure or replay | 128-bit random codes, SHA-256 hashes at rest, and atomic one-time consumption |
+| Email action links | Token theft, replay, or database disclosure | 256-bit random tokens, SHA-256 hashes at rest, 30-minute expiry, one-time consumption, and refresh-session revocation on password reset |
 | Refresh flow | Replay / parallel refresh race | Hashed opaque token, atomic consume-and-rotate |
 | Workflow operator | Premature request fulfillment | Identity verification and transition checks |
 | Audit consumer | Exposure of personal-data values | Event metadata records changed field names, not field values |
