@@ -26,7 +26,7 @@ This document describes the current engineering controls and the remaining work.
 
 ## Important residual risks
 
-1. **Account lifecycle:** email verification, password recovery, invitations, and account lockout policy are not implemented. TOTP MFA is now available through the identity API, but recovery codes and a self-service browser settings screen are not yet implemented.
+1. **Account lifecycle:** email verification, password recovery, invitations, and account lockout policy are not implemented. TOTP MFA, one-time recovery codes, and a self-service browser security settings screen are implemented. Email verification and password recovery remain outstanding.
 2. **Cookie/CSRF posture:** cookie-authenticated registration, login, refresh, and logout require an exact match with the configured WEB_ORIGIN. Production refresh cookies use Secure + SameSite=None so a separately hosted browser app can send them. Verify the exact deployed origin, HTTPS, browser third-party-cookie behavior, and the final domain topology; prefer same-site custom domains where possible.
 3. **Access-token revocation:** access tokens are short-lived; refresh-session logout does not instantly revoke an already-issued access token. Membership and account state are reloaded, but session-level revocation is not checked on every request.
 4. **Registration/session semantics:** review registration response and cookie behavior, organization selection, and duplicate-registration race handling.
@@ -46,7 +46,7 @@ The API is authoritative. Frontend role-based visibility is only a usability aff
 ## Pre-production checklist
 
 - [ ] Complete an application-specific threat model and security review.
-- [ ] Add email verification, password recovery, recovery codes, and secure invitation flows.
+- [ ] Add email verification, password recovery, and secure invitation flows.
 - [ ] Add integration tests for TOTP enrollment, login challenge replay, and MFA disable/session revocation.
 - [ ] Review CSRF defenses, cookie flags, origin validation, and CORS configuration against deployed domains.
 - [ ] Add integration tests for authentication, role permissions, and cross-tenant IDOR attempts.
