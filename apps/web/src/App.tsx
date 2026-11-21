@@ -1,90 +1,17 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-
-type User = { id: string; fullName: string; email: string };
-type Org = { id: string; name: string; slug?: string; role: string };
-type Session = { user: User; organization: Org; accessToken: string };
-type MfaSetup = { secret: string; otpauthUri: string; instructions: string };
-type Asset = {
-  _id: string; name: string; description?: string; system: string; ownerTeam: string;
-  classification: string; dataCategories?: string[]; dataSubjects?: string[]; status: string;
-  updatedAt?: string;
-};
-type Activity = {
-  _id: string; name: string; purpose: string; legalBasis: string; dataCategories: string[];
-  dataSubjects: string[]; systems: string[]; assetIds: string[]; retentionPeriodDays: number | null;
-  status: string; updatedAt?: string;
-};
-type RequestItem = {
-  _id: string; requestType: string; description: string; status: string; createdAt: string;
-  dueAt?: string | null; identityVerificationStatus?: string; resolutionSummary?: string;
-  rejectionReason?: string; assignedTo?: string | null;
-};
-type AuditItem = {
-  _id: string; action: string; resourceType: string; resourceId: string;
-  changedFields: string[]; createdAt: string;
-  actorId?: { fullName?: string; email?: string } | string;
-};
-type RequestEvent = { _id: string; action: string; changedFields: string[]; createdAt: string; actorId?: string };
-type Member = { user: { id: string; fullName: string; email: string }; role: string };
-
-const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1').replace(/\/$/, '');
-let activeAccessToken: string | undefined;
-let refreshInFlight: Promise<string | undefined> | undefined;
-
-async function refreshAccessToken(): Promise<string | undefined> {
-  if (!refreshInFlight) {
-    refreshInFlight = fetch(API + '/auth/refresh', { method: 'POST', credentials: 'include' })
-      .then(async (response) => {
-        if (!response.ok) return undefined;
-        const body = await response.json() as { data?: { accessToken?: string } };
-        activeAccessToken = body.data?.accessToken;
-        return activeAccessToken;
-      })
-      .catch(() => undefined)
-      .finally(() => { refreshInFlight = undefined; });
-  }
-  return refreshInFlight;
-}
-
-async function call<T>(path: string, token?: string, init: RequestInit = {}, retry = true): Promise<T> {
-  const headers = new Headers(init.headers);
-  if (init.body) headers.set('Content-Type', 'application/json');
-  const currentToken = activeAccessToken || token;
-  if (currentToken) headers.set('Authorization', 'Bearer ' + currentToken);
-  const response = await fetch(API + path, { ...init, headers, credentials: 'include' });
-  if (response.status === 401 && retry && !path.startsWith('/auth/')) {
-    const nextToken = await refreshAccessToken();
-    if (nextToken) return call<T>(path, nextToken, init, false);
-  }
-  if (response.status === 204) return undefined as T;
-  const body = await response.json().catch(() => ({})) as { data?: T; error?: { message?: string } };
-  if (!response.ok) throw new Error(body.error?.message || 'Request failed (' + response.status + ')');
-  return body.data as T;
-}
-
-function csvDownload(filename: string, rows: Array<Record<string, unknown>>) {
-  if (!rows.length) return;
-  const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
-  const quote = (value: unknown) => '"' + String(value ?? '').replace(/"/g, '""') + '"';
-  const csv = [columns.map(quote).join(','), ...rows.map((row) => columns.map((key) => quote(row[key])).join(','))].join('\r\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url; anchor.download = filename; anchor.click();
-  URL.revokeObjectURL(url);
-}
-
-const terminalStatuses = ['fulfilled', 'rejected', 'withdrawn', 'closed'];
-const statusTransitions: Record<string, string[]> = {
-  submitted: ['identity_verification', 'in_progress', 'withdrawn'],
-  identity_verification: ['in_progress', 'awaiting_information', 'rejected', 'withdrawn'],
-  in_progress: ['awaiting_information', 'fulfilled', 'rejected', 'withdrawn'],
-  awaiting_information: ['in_progress', 'fulfilled', 'rejected', 'withdrawn'],
-  fulfilled: ['closed'], rejected: ['closed'], withdrawn: ['closed'], closed: [],
-};
-const label = (value: string) => value.replaceAll('_', ' ');
-const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set';
+import { call, refreshAccessToken, setAccessToken } from './lib/api-client';
+import { csvDownload } from './lib/csv';
+import { dateLabel, label } from './lib/format';
+import { terminalStatuses, statusTransitions } from './features/requests/domain';
+import type { User, Org, Session } from './features/auth/types';
+import type { MfaSetup } from './features/security/types';
+import type { Asset } from './features/inventory/types';
+import type { Activity } from './features/processing/types';
+import type { RequestItem, RequestEvent, RequestUpdate } from './features/requests/types';
+import type { AuditItem } from './features/audit/types';
+import type { Member } from './features/organization/types';
+import RequestDetailModal from './features/requests/RequestDetailModal';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -126,7 +53,7 @@ export default function App() {
   const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(null);
   const [requestEvents, setRequestEvents] = useState<RequestEvent[]>([]);
   const [eventBusy, setEventBusy] = useState(false);
-  const [requestUpdate, setRequestUpdate] = useState({ status: '', identityVerificationStatus: 'pending', resolutionSummary: '', rejectionReason: '', assignedTo: '', dueAt: '' });
+  const [requestUpdate, setRequestUpdate] = useState<RequestUpdate>({ status: '', identityVerificationStatus: 'pending', resolutionSummary: '', rejectionReason: '', assignedTo: '', dueAt: '' });
   const [auth, setAuth] = useState({ fullName: '', email: '', password: '', organizationName: '' });
   const [asset, setAsset] = useState({ name: '', system: '', ownerTeam: '', classification: 'internal', description: '', dataCategories: '', dataSubjects: '' });
   const [activity, setActivity] = useState({ name: '', purpose: '', legalBasis: 'consent', dataCategories: '', dataSubjects: '', systems: '', assetIds: '', retentionPeriodDays: '365' });
@@ -214,7 +141,7 @@ export default function App() {
       const result = await call<{ mfaRequired?: boolean; challengeToken?: string; accessToken?: string; user?: User; organization?: Org }>(path, undefined, { method: 'POST', body: JSON.stringify(payload) });
       if (result.mfaRequired && result.challengeToken) { setMfaChallenge(result.challengeToken); setMfaCode(''); setMfaRecoveryMode(false); setNotice('Password verified. Complete the second authentication step.'); return; }
       if (!result.accessToken || !result.organization || !result.user) throw new Error('The authentication response was incomplete.');
-      activeAccessToken = result.accessToken;
+      setAccessToken(result.accessToken);
       const context = await call<{ organization: { id: string; name: string; slug: string }; membership: { role: string } }>(
         '/organizations/' + encodeURIComponent(result.organization.id) + '/context', result.accessToken,
       );
@@ -226,7 +153,7 @@ export default function App() {
 
   async function signOut() {
     try { await call('/auth/logout', session?.accessToken, { method: 'POST' }); } catch { /* local sign-out must still complete */ }
-    activeAccessToken = undefined;
+    setAccessToken(undefined);
     setSession(null); setAssets([]); setActivities([]); setRequests([]); setAudit([]); setMembers([]);
     setNotice('You have signed out.');
   }
@@ -236,7 +163,7 @@ export default function App() {
     event.preventDefault(); if (!mfaChallenge) return; setError(''); setAuthBusy(true);
     try {
       const result = await call<{ accessToken: string; user: User; organization: Org }>('/auth/mfa/verify-login', undefined, { method: 'POST', body: JSON.stringify({ challengeToken: mfaChallenge, ...(mfaRecoveryMode ? { recoveryCode: mfaCode } : { code: mfaCode }) }) });
-      activeAccessToken = result.accessToken;
+      setAccessToken(result.accessToken);
       const context = await call<{ organization: { id: string; name: string; slug: string }; membership: { role: string } }>('/organizations/' + encodeURIComponent(result.organization.id) + '/context', result.accessToken);
       setSession({ user: result.user, organization: { ...context.organization, role: context.membership.role }, accessToken: result.accessToken });
       setMfaChallenge(''); setMfaCode(''); setNotice('Multi-factor authentication complete.');
@@ -540,21 +467,18 @@ export default function App() {
       <footer><span>PrivaOps · Privacy operations workspace</span><span>Human review required for legal, risk, and identity decisions.</span></footer>
     </section>
 
-    {selectedRequest && <div className="modal-backdrop" role="presentation" onClick={() => setSelectedRequest(null)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="request-detail-title" onClick={(e) => e.stopPropagation()}>
-      <div className="modal-heading"><div><p className="eyebrow">REQUEST DETAIL</p><h2 id="request-detail-title">{label(selectedRequest.requestType)} request</h2></div><button className="icon-button" onClick={() => setSelectedRequest(null)} aria-label="Close details">×</button></div>
-      <div className="detail-grid"><div><small>Current status</small><strong>{label(selectedRequest.status)}</strong></div><div><small>Identity verification</small><strong>{label(selectedRequest.identityVerificationStatus ?? 'pending')}</strong></div><div><small>Submitted</small><strong>{dateLabel(selectedRequest.createdAt)}</strong></div><div><small>Due date</small><strong>{dateLabel(selectedRequest.dueAt)}</strong></div></div>
-      <div className="detail-description"><small>Request description</small><p>{selectedRequest.description || 'No description provided.'}</p></div>
-      <div className="timeline"><h3>Request history</h3>{eventBusy ? <p className="empty">Loading history…</p> : requestEvents.map((item) => <article key={item._id}><span /><div><strong>{label(item.action)}</strong><small>{item.changedFields.map(label).join(', ')}</small><time>{new Date(item.createdAt).toLocaleString()}</time></div></article>)}</div>
-      {canManage && !terminalStatuses.includes(selectedRequest.status) && <form className="inline-form modal-form" onSubmit={saveRequestUpdate}>
-        <p className="eyebrow wide">WORKFLOW ACTION</p>
-        <label>Identity verification<select value={requestUpdate.identityVerificationStatus} onChange={(e) => setRequestUpdate({ ...requestUpdate, identityVerificationStatus: e.target.value })}><option value="pending">Pending</option><option value="verified">Verified</option><option value="failed">Failed</option></select></label>
-        <label>Next status<select value={requestUpdate.status} onChange={(e) => setRequestUpdate({ ...requestUpdate, status: e.target.value })}><option value="">Keep current status</option>{(statusTransitions[selectedRequest.status] ?? []).map((value) => <option key={value} value={value}>{label(value)}</option>)}</select></label>
-        <label>Assigned owner<select value={requestUpdate.assignedTo} onChange={(e) => setRequestUpdate({ ...requestUpdate, assignedTo: e.target.value })}><option value="">Unassigned</option>{members.map((member) => <option key={member.user.id} value={member.user.id}>{member.user.fullName} · {member.role}</option>)}</select></label>
-        <label>Operational due date<input type="date" value={requestUpdate.dueAt} onChange={(e) => setRequestUpdate({ ...requestUpdate, dueAt: e.target.value })} /></label>
-        {requestUpdate.status === 'fulfilled' && <label className="wide">Resolution summary<textarea required rows={2} value={requestUpdate.resolutionSummary} onChange={(e) => setRequestUpdate({ ...requestUpdate, resolutionSummary: e.target.value })} /></label>}
-        {requestUpdate.status === 'rejected' && <label className="wide">Rejection reason<textarea required rows={2} value={requestUpdate.rejectionReason} onChange={(e) => setRequestUpdate({ ...requestUpdate, rejectionReason: e.target.value })} /></label>}
-        <div className="form-actions"><button type="button" className="secondary" onClick={() => setSelectedRequest(null)}>Close</button><button className="primary">Save workflow update</button></div>
-      </form>}
-    </section></div>}
+    {selectedRequest && (
+      <RequestDetailModal
+        request={selectedRequest}
+        events={requestEvents}
+        eventBusy={eventBusy}
+        canManage={Boolean(canManage)}
+        members={members}
+        update={requestUpdate}
+        setUpdate={setRequestUpdate}
+        onClose={() => setSelectedRequest(null)}
+        onSave={saveRequestUpdate}
+      />
+    )}
   </main>;
 }

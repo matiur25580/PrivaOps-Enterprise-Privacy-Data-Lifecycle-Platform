@@ -48,6 +48,10 @@ The web workspace exposes deep-linkable feature routes. All routes use the same 
 
 Navigation updates the browser URL through the Next.js App Router, so feature views can be bookmarked and opened directly. The audit route remains protected by the existing role-aware UI and, critically, server-side API authorization.
 
+### Frontend feature architecture
+
+The web workspace is being decomposed into domain-owned modules rather than keeping API transport, data contracts, workflow rules, and request-detail UI inside one component. Current boundaries include a shared API client, feature-specific TypeScript contracts, a privacy-request domain module with unit tests, and an extracted request-detail/timeline component. See [Frontend Feature Module Architecture](docs/FRONTEND_FEATURE_MODULES.md) for the module map and security invariants.
+
 ### Implemented capabilities
 
 | Module | What is implemented |
