@@ -265,7 +265,7 @@ export default function App() {
     const payload: Record<string, string | null> = {
       identityVerificationStatus: requestUpdate.identityVerificationStatus,
       assignedTo: requestUpdate.assignedTo || null,
-      dueAt: requestUpdate.dueAt ? new Date(requestUpdate.dueAt + 'T23:59:59.000Z').toISOString() : null,
+      dueAt: requestUpdate.dueAt ? new Date(requestUpdate.dueAt + 'T23:59:59').toISOString() : null,
     };
     if (requestUpdate.status) payload.status = requestUpdate.status;
     if (requestUpdate.status === 'fulfilled' || selectedRequest.status === 'in_progress' || selectedRequest.status === 'awaiting_information') {
