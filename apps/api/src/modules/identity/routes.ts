@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import argon2 from 'argon2';
-import { Router, type Response } from 'express';
+import { Router, type RequestHandler, type Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
 import { Types } from 'mongoose';
 import { z } from 'zod';
@@ -19,6 +19,17 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   message: { error: { code: 'RATE_LIMITED', message: 'Too many authentication attempts. Try again later.' } },
 });
+
+const requireTrustedOrigin: RequestHandler = (request, response, next) => {
+  const origin = request.header('origin');
+  if (origin !== new URL(env.WEB_ORIGIN).origin) {
+    response.status(403).json({
+      error: { code: 'UNTRUSTED_ORIGIN', message: 'This authentication request did not come from the configured web origin.' },
+    });
+    return;
+  }
+  next();
+};
 
 const registerSchema = z.object({
   fullName: z.string().trim().min(2).max(120),
@@ -57,7 +68,7 @@ async function issueSession(userId: string, organizationId: string, response: Re
   return { accessToken, tokenType: 'Bearer', expiresIn: env.ACCESS_TOKEN_TTL_SECONDS };
 }
 
-identityRouter.post('/auth/register', authLimiter, async (request, response) => {
+identityRouter.post('/auth/register', authLimiter, requireTrustedOrigin, async (request, response) => {
   const parsed = registerSchema.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Please provide valid registration details.', details: parsed.error.flatten() } });
@@ -103,7 +114,7 @@ identityRouter.post('/auth/register', authLimiter, async (request, response) => 
   }
 });
 
-identityRouter.post('/auth/login', authLimiter, async (request, response) => {
+identityRouter.post('/auth/login', authLimiter, requireTrustedOrigin, async (request, response) => {
   const parsed = loginSchema.safeParse(request.body);
   if (!parsed.success) {
     response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Please provide valid login details.' } });
@@ -151,7 +162,7 @@ identityRouter.post('/auth/login', authLimiter, async (request, response) => {
   });
 });
 
-identityRouter.post('/auth/refresh', async (request, response) => {
+identityRouter.post('/auth/refresh', requireTrustedOrigin, async (request, response) => {
   const rawToken = request.cookies?.privaops_refresh as string | undefined;
   if (!rawToken) {
     response.status(401).json({ error: { code: 'REFRESH_REQUIRED', message: 'A refresh session is required.' } });
@@ -185,7 +196,7 @@ identityRouter.post('/auth/refresh', async (request, response) => {
   response.status(200).json({ data: tokens });
 });
 
-identityRouter.post('/auth/logout', async (request, response) => {
+identityRouter.post('/auth/logout', requireTrustedOrigin, async (request, response) => {
   const rawToken = request.cookies?.privaops_refresh as string | undefined;
   if (rawToken) await RefreshSession.deleteOne({ tokenHash: hashRefreshToken(rawToken) });
   response.clearCookie('privaops_refresh', getRefreshCookieOptions());
