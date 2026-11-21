@@ -31,9 +31,6 @@ All endpoints are mounted below `/api/v1`.
 ## Authentication model
 
 - Passwords are hashed with Argon2id; plaintext passwords are never persisted.
-- New registrations remain pending until their email is verified. Existing user records without the flag remain compatible.
-- Verification and password-reset links use 256-bit random tokens; only SHA-256 hashes are stored. Tokens expire after 30 minutes and are consumed once.
-- Password reset revokes every refresh session. Forgot-password and resend-verification responses do not disclose whether an email is registered.
 - New registrations remain pending until the email address is verified. Existing user records without the flag remain compatible.
 - Verification and password-reset tokens are 256-bit random values; only SHA-256 hashes are stored. Tokens expire after 30 minutes and are consumed once.
 - Password reset revokes all refresh sessions. Forgot-password and resend-verification responses do not reveal whether an email is registered.
@@ -53,7 +50,7 @@ Do not build organization-owned queries from a client-supplied tenant ID alone. 
 
 ## Local secrets
 
-Set `ACCESS_TOKEN_SECRET` to a random value of at least 32 characters. In production, configure `RESEND_API_KEY` and a verified `EMAIL_FROM` sender. In development, action links are logged to the API console. In production, configure `RESEND_API_KEY` and a verified `EMAIL_FROM` sender. In development, account-action links are logged to the API console. Generate one with:
+Set `ACCESS_TOKEN_SECRET` to a random value of at least 32 characters. In production, configure `RESEND_API_KEY` and a verified `EMAIL_FROM` sender. In development, account-action links are logged to the API console. Generate one with:
 
 ```bash
 openssl rand -base64 48
