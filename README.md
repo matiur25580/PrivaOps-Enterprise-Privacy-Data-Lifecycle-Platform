@@ -236,7 +236,8 @@ A view of the tenant-scoped registers available for CSV export and downstream re
 - **Login timing:** unknown-account login attempts perform a dummy Argon2id verification to reduce account-enumeration timing differences.
 - **Access tokens:** short-lived signed JWTs with issuer and audience validation.
 - **Refresh sessions:** cryptographically random opaque tokens, SHA-256 hashes at rest, HttpOnly cookies, rotation, and logout revocation.
-- **TOTP MFA:** encrypted authenticator secrets, enrollment confirmation, short-lived MFA-only login challenges, time-window verification, password-plus-code disable, and refresh-session revocation on disable.
+- **TOTP MFA:** encrypted authenticator secrets, enrollment confirmation, short-lived one-time login challenges, time-window verification, password-plus-code disable, and refresh-session revocation on disable.
+- **Recovery codes:** ten random 128-bit codes per set, SHA-256 hashes at rest, atomic one-time consumption, and explicit rotation that invalidates the previous set.
 - **Tenant isolation:** server-derived organization scope, active membership validation, organization-scoped database filters, and same-tenant reference validation.
 - **Authorization:** explicit API permission matrix for owner, admin, member, and viewer roles.
 - **Request validation:** Zod schemas and bounded JSON payloads.
@@ -389,7 +390,13 @@ All application routes are mounted below `/api/v1`.
 | Method | Endpoint | Purpose |
 | --- | --- | --- |
 | POST | `/auth/register` | Create a user, organization, owner membership, and session |
-| POST | `/auth/login` | Authenticate and select an active organization membership |
+| POST | `/auth/login` | Authenticate; MFA-enabled accounts receive a second-factor challenge |
+| POST | `/auth/mfa/verify-login` | Complete one-time MFA challenge using TOTP or recovery code |
+| GET | `/auth/mfa/status` | Read MFA state and unused recovery-code count |
+| POST | `/auth/mfa/setup` | Start authenticator enrollment |
+| POST | `/auth/mfa/confirm` | Confirm and enable authenticator MFA |
+| POST | `/auth/mfa/recovery-codes` | Rotate recovery codes after password and TOTP verification |
+| POST | `/auth/mfa/disable` | Disable MFA and revoke refresh sessions after password and TOTP verification |
 | POST | `/auth/refresh` | Rotate the refresh session |
 | POST | `/auth/logout` | Revoke refresh session and clear cookie |
 | GET | `/auth/me` | Read current authenticated identity |
