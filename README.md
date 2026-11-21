@@ -360,7 +360,7 @@ Default local URLs:
 
 | Variable | Required | Description |
 | --- | --- | --- |
-| `VITE_API_URL` | Recommended | Public API base URL including `/api/v1` |
+| `NEXT_PUBLIC_API_URL` | Recommended | Public API base URL including `/api/v1` |
 
 **Important:** Next.js embeds `NEXT_PUBLIC_*` values to the browser bundle. Never place database URIs, token-signing secrets, private API keys, or other secrets in frontend environment variables.
 
@@ -468,7 +468,7 @@ Recommended topology:
 | Install | `npm install` | `npm install` |
 | Build | `npm run build --workspace @privaops/web` | `npm run build --workspace @privaops/api` |
 | Output / start | Next.js managed output (no custom output directory) | `npm run start --workspace @privaops/api` |
-| Environment | `VITE_API_URL=https://<api-host>/api/v1` | `NODE_ENV`, `MONGODB_URI`, `ACCESS_TOKEN_SECRET`, `WEB_ORIGIN` |
+| Environment | `NEXT_PUBLIC_API_URL=https://<api-host>/api/v1` | `NODE_ENV`, `MONGODB_URI`, `ACCESS_TOKEN_SECRET`, `WEB_ORIGIN` |
 
 For full provider configuration, cookie-origin guidance, health checks, smoke tests, hardening, rollback, and release sign-off, follow [docs/DEPLOYMENT_CHECKLIST.md](docs/DEPLOYMENT_CHECKLIST.md).
 
