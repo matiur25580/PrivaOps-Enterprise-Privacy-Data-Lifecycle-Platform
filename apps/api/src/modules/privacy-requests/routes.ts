@@ -243,10 +243,6 @@ privacyRequestRouter.patch(
       } });
       return;
     }
-    if (parsed.data.status === 'fulfilled' && identityStatus !== 'verified') {
-      response.status(409).json({ error: { code: 'IDENTITY_VERIFICATION_REQUIRED', message: 'Verify the requester\'s identity before fulfilling this request.' } });
-      return;
-    }
     if (parsed.data.status === 'fulfilled' && !(parsed.data.resolutionSummary ?? current.resolutionSummary).trim()) {
       response.status(400).json({ error: { code: 'RESOLUTION_REQUIRED', message: 'Add a resolution summary before fulfilling a request.' } });
       return;
