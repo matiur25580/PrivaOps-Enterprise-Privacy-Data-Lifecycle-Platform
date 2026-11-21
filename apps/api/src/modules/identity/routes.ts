@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import argon2 from 'argon2';
 import { Router, type RequestHandler, type Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
@@ -10,6 +10,7 @@ import { authenticate, requireOrganizationScope, requirePermission } from './mid
 import { createAccessToken, createMfaChallengeToken, createRefreshToken, getRefreshCookieOptions, hashRefreshToken, verifyMfaChallengeToken } from './tokens.js';
 import { verifyPassword } from './password.js';
 import { buildOtpAuthUri, decryptTotpSecret, encryptTotpSecret, generateTotpSecret, verifyTotp } from './totp.js';
+import { generateRecoveryCodes, hashRecoveryCode } from './recovery-codes.js';
 import type { OrganizationRole } from './types.js';
 
 export const identityRouter = Router();
@@ -176,7 +177,7 @@ identityRouter.post('/auth/login', authLimiter, requireTrustedOrigin, async (req
 const mfaLoginSchema = z.object({
   challengeToken: z.string().min(20).max(4096),
   code: z.string().regex(/^\d{6}$/).optional(),
-  recoveryCode: z.string().min(20).max(40).optional(),
+  recoveryCode: z.string().regex(/^[a-f0-9]{32}$/i).optional(),
 }).refine((value) => Boolean(value.code) !== Boolean(value.recoveryCode), 'Provide exactly one authenticator or recovery code.');
 identityRouter.post('/auth/mfa/verify-login', authLimiter, requireTrustedOrigin, async (request, response) => {
   const parsed = mfaLoginSchema.safeParse(request.body);
@@ -200,7 +201,7 @@ identityRouter.post('/auth/mfa/verify-login', authLimiter, requireTrustedOrigin,
     return;
   }
   const recoveryHash = parsed.data.recoveryCode
-    ? hashRefreshToken(parsed.data.recoveryCode.replace(/[^a-f0-9]/giu, '').toLowerCase())
+    ? hashRecoveryCode(parsed.data.recoveryCode)
     : undefined;
   const valid = parsed.data.code
     ? verifyTotp(decryptTotpSecret(user.totpSecretEncrypted), parsed.data.code)
@@ -303,8 +304,8 @@ identityRouter.post('/auth/mfa/recovery-codes', authenticate, authLimiter, async
     response.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Password or authenticator code is incorrect.' } });
     return;
   }
-  const codes = Array.from({ length: 10 }, () => randomBytes(16).toString('hex').toUpperCase());
-  user.set('recoveryCodeHashes', codes.map((code) => hashRefreshToken(code)));
+  const codes = generateRecoveryCodes();
+  user.set('recoveryCodeHashes', codes.map((code) => hashRecoveryCode(code)));
   await user.save();
   response.status(200).json({
     data: {
