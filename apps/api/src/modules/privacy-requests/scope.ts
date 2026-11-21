@@ -14,3 +14,17 @@ export function ownPrivacyRequestFilter(
 ): PrivacyRequestFilter {
   return { ...criteria, organizationId, requestedBy: userId };
 }
+
+export function privacyRequestCompareAndSetFilter(
+  organizationId: string,
+  requestId: unknown,
+  currentStatus: string,
+  currentIdentityVerificationStatus: string,
+): PrivacyRequestFilter {
+  return {
+    _id: requestId,
+    organizationId,
+    status: currentStatus,
+    identityVerificationStatus: currentIdentityVerificationStatus,
+  };
+}

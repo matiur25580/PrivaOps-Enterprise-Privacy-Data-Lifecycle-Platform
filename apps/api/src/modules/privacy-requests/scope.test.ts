@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { hasPermission, type OrganizationRole } from '../identity/types.js';
-import { organizationRequestFilter, ownPrivacyRequestFilter } from './scope.js';
+import { organizationRequestFilter, ownPrivacyRequestFilter, privacyRequestCompareAndSetFilter } from './scope.js';
 
 describe('privacy request access boundaries', () => {
   it('always scopes organization queue queries to the authenticated tenant', () => {
@@ -38,5 +38,18 @@ describe('privacy request access boundaries', () => {
       { role: 'member', create: true, readOwn: true, readAll: false, manage: false },
       { role: 'viewer', create: false, readOwn: false, readAll: false, manage: false },
     ]);
+  });
+});
+
+describe('privacy request compare-and-set updates', () => {
+  it('matches both the current workflow and identity verification state', () => {
+    expect(privacyRequestCompareAndSetFilter(
+      'tenant-a', 'request-1', 'in_progress', 'verified',
+    )).toEqual({
+      _id: 'request-1',
+      organizationId: 'tenant-a',
+      status: 'in_progress',
+      identityVerificationStatus: 'verified',
+    });
   });
 });
