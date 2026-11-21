@@ -24,6 +24,7 @@ type AuditItem = {
   actorId?: { fullName?: string; email?: string } | string;
 };
 type RequestEvent = { _id: string; action: string; changedFields: string[]; createdAt: string; actorId?: string };
+type Member = { user: { id: string; fullName: string; email: string }; role: string };
 
 const API = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1').replace(/\/$/, '');
 let activeAccessToken: string | undefined;
@@ -92,6 +93,7 @@ export default function App() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [requests, setRequests] = useState<RequestItem[]>([]);
   const [audit, setAudit] = useState<AuditItem[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
@@ -105,7 +107,7 @@ export default function App() {
   const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(null);
   const [requestEvents, setRequestEvents] = useState<RequestEvent[]>([]);
   const [eventBusy, setEventBusy] = useState(false);
-  const [requestUpdate, setRequestUpdate] = useState({ status: '', identityVerificationStatus: 'pending', resolutionSummary: '', rejectionReason: '' });
+  const [requestUpdate, setRequestUpdate] = useState({ status: '', identityVerificationStatus: 'pending', resolutionSummary: '', rejectionReason: '', assignedTo: '', dueAt: '' });
   const [auth, setAuth] = useState({ fullName: '', email: '', password: '', organizationName: '' });
   const [asset, setAsset] = useState({ name: '', system: '', ownerTeam: '', classification: 'internal', description: '', dataCategories: '', dataSubjects: '' });
   const [activity, setActivity] = useState({ name: '', purpose: '', legalBasis: 'consent', dataCategories: '', dataSubjects: '', systems: '', assetIds: '', retentionPeriodDays: '365' });
@@ -128,6 +130,9 @@ export default function App() {
       current.organization.role === 'owner' || current.organization.role === 'admin'
         ? call<{ items: AuditItem[] }>(base + '/audit-events?limit=8', current.accessToken)
         : Promise.resolve({ items: [] as AuditItem[] }),
+      current.organization.role === 'owner' || current.organization.role === 'admin'
+        ? call<{ members: Member[] }>(base + '/members', current.accessToken)
+        : Promise.resolve({ members: [] as Member[] }),
     ]);
     const messages: string[] = [];
     if (tasks[0].status === 'fulfilled') setAssets(tasks[0].value.items);
@@ -138,6 +143,8 @@ export default function App() {
     else messages.push('Privacy requests: ' + (tasks[2].reason instanceof Error ? tasks[2].reason.message : 'unavailable'));
     if (tasks[3].status === 'fulfilled') setAudit(tasks[3].value.items);
     else setAudit([]);
+    if (tasks[4].status === 'fulfilled') setMembers(tasks[4].value.members);
+    else setMembers([]);
     if (messages.length) setError(messages.join(' · '));
     setBusy(false);
   }, []);
@@ -189,7 +196,7 @@ export default function App() {
   async function signOut() {
     try { await call('/auth/logout', session?.accessToken, { method: 'POST' }); } catch { /* local sign-out must still complete */ }
     activeAccessToken = undefined;
-    setSession(null); setAssets([]); setActivities([]); setRequests([]); setAudit([]);
+    setSession(null); setAssets([]); setActivities([]); setRequests([]); setAudit([]); setMembers([]);
     setNotice('You have signed out.');
   }
 
@@ -245,7 +252,7 @@ export default function App() {
   async function inspectRequest(item: RequestItem) {
     if (!session) return;
     setSelectedRequest(item); setRequestEvents([]); setEventBusy(true);
-    setRequestUpdate({ status: statusTransitions[item.status]?.[0] ?? '', identityVerificationStatus: item.identityVerificationStatus ?? 'pending', resolutionSummary: item.resolutionSummary ?? '', rejectionReason: item.rejectionReason ?? '' });
+    setRequestUpdate({ status: statusTransitions[item.status]?.[0] ?? '', identityVerificationStatus: item.identityVerificationStatus ?? 'pending', resolutionSummary: item.resolutionSummary ?? '', rejectionReason: item.rejectionReason ?? '', assignedTo: item.assignedTo ?? '', dueAt: item.dueAt ? item.dueAt.slice(0, 10) : '' });
     try {
       const result = await call<{ events: RequestEvent[] }>(orgBase + '/privacy-requests/' + item._id + '/events', session.accessToken);
       setRequestEvents(result.events);
@@ -255,8 +262,10 @@ export default function App() {
 
   async function saveRequestUpdate(event: FormEvent) {
     event.preventDefault(); if (!session || !selectedRequest) return;
-    const payload: Record<string, string> = {
+    const payload: Record<string, string | null> = {
       identityVerificationStatus: requestUpdate.identityVerificationStatus,
+      assignedTo: requestUpdate.assignedTo || null,
+      dueAt: requestUpdate.dueAt ? new Date(requestUpdate.dueAt + 'T23:59:59.000Z').toISOString() : null,
     };
     if (requestUpdate.status) payload.status = requestUpdate.status;
     if (requestUpdate.status === 'fulfilled' || selectedRequest.status === 'in_progress' || selectedRequest.status === 'awaiting_information') {
@@ -431,6 +440,8 @@ export default function App() {
         <p className="eyebrow wide">WORKFLOW ACTION</p>
         <label>Identity verification<select value={requestUpdate.identityVerificationStatus} onChange={(e) => setRequestUpdate({ ...requestUpdate, identityVerificationStatus: e.target.value })}><option value="pending">Pending</option><option value="verified">Verified</option><option value="failed">Failed</option></select></label>
         <label>Next status<select value={requestUpdate.status} onChange={(e) => setRequestUpdate({ ...requestUpdate, status: e.target.value })}><option value="">Keep current status</option>{(statusTransitions[selectedRequest.status] ?? []).map((value) => <option key={value} value={value}>{label(value)}</option>)}</select></label>
+        <label>Assigned owner<select value={requestUpdate.assignedTo} onChange={(e) => setRequestUpdate({ ...requestUpdate, assignedTo: e.target.value })}><option value="">Unassigned</option>{members.map((member) => <option key={member.user.id} value={member.user.id}>{member.user.fullName} · {member.role}</option>)}</select></label>
+        <label>Operational due date<input type="date" value={requestUpdate.dueAt} onChange={(e) => setRequestUpdate({ ...requestUpdate, dueAt: e.target.value })} /></label>
         {requestUpdate.status === 'fulfilled' && <label className="wide">Resolution summary<textarea required rows={2} value={requestUpdate.resolutionSummary} onChange={(e) => setRequestUpdate({ ...requestUpdate, resolutionSummary: e.target.value })} /></label>}
         {requestUpdate.status === 'rejected' && <label className="wide">Rejection reason<textarea required rows={2} value={requestUpdate.rejectionReason} onChange={(e) => setRequestUpdate({ ...requestUpdate, rejectionReason: e.target.value })} /></label>}
         <div className="form-actions"><button type="button" className="secondary" onClick={() => setSelectedRequest(null)}>Close</button><button className="primary">Save workflow update</button></div>
