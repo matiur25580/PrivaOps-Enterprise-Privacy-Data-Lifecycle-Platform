@@ -66,6 +66,34 @@ async function recordInventoryAudit(
 
 const organizationMiddleware = [authenticate, requireOrganizationScope] as const;
 
+const auditListSchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  q: z.string().trim().max(120).optional(),
+  resourceType: z.enum(['data_asset', 'processing_activity']).optional(),
+});
+
+inventoryRouter.get('/organizations/:organizationId/audit-events', ...organizationMiddleware, requirePermission('audit:read'), async (request, response) => {
+  const parsed = auditListSchema.safeParse(request.query);
+  if (!parsed.success) {
+    response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid audit filters.', details: parsed.error.flatten() } });
+    return;
+  }
+  const { page, limit, q, resourceType } = parsed.data;
+  const filter: Record<string, unknown> = tenantScopedFilter(request.auth!.organizationId);
+  if (resourceType) filter.resourceType = resourceType;
+  if (q) filter.$or = [
+    { action: { $regex: escapeRegex(q), $options: 'i' } },
+    { resourceId: { $regex: escapeRegex(q), $options: 'i' } },
+    { changedFields: { $regex: escapeRegex(q), $options: 'i' } },
+  ];
+  const [items, total] = await Promise.all([
+    AuditEvent.find(filter).populate('actorId', 'fullName email').sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+    AuditEvent.countDocuments(filter),
+  ]);
+  response.json({ data: { items, pagination: pagination(page, limit, total) } });
+});
+
 inventoryRouter.get('/organizations/:organizationId/data-assets', ...organizationMiddleware, requirePermission('data:read'), async (request, response) => {
   const parsed = assetListSchema.safeParse(request.query);
   if (!parsed.success) {
