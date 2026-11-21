@@ -4,6 +4,9 @@ interface UserRecord {
   fullName: string;
   email: string;
   passwordHash: string;
+  totpEnabled: boolean;
+  totpSecretEncrypted?: string;
+  totpPendingSecretEncrypted?: string;
   status: 'active' | 'suspended';
 }
 interface OrganizationRecord {
@@ -31,6 +34,9 @@ const userSchema = new Schema({
   fullName: { type: String, required: true, trim: true, maxlength: 120 },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   passwordHash: { type: String, required: true, select: false },
+  totpEnabled: { type: Boolean, default: false, select: false },
+  totpSecretEncrypted: { type: String, select: false },
+  totpPendingSecretEncrypted: { type: String, select: false },
   status: { type: String, enum: ['active', 'suspended'], default: 'active', index: true },
 }, { timestamps: true });
 
