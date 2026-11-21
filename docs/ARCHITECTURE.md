@@ -23,7 +23,7 @@ PrivaOps is a TypeScript monorepo with a browser application, HTTP API, and shar
 ### Identity and tenancy
 
 - Users, organizations, memberships, and refresh sessions.
-- Argon2id password hashing.
+- Argon2id password hashing.\n- Optional TOTP MFA with encrypted secret storage, confirmed enrollment, and a short-lived second-factor login challenge.
 - Short-lived JWT access tokens and hashed, rotating refresh tokens in HttpOnly cookies.
 - Membership is revalidated on authenticated requests.
 - Explicit owner/admin/member/viewer permission matrix.
