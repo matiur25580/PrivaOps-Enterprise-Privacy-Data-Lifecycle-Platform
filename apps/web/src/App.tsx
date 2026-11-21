@@ -3,15 +3,15 @@ import { usePathname, useRouter } from 'next/navigation';
 import { call, refreshAccessToken, setAccessToken } from './lib/api-client';
 import { csvDownload } from './lib/csv';
 import { dateLabel, label } from './lib/format';
-import { terminalStatuses, statusTransitions } from './features/requests/domain';
+import { terminalStatuses } from './features/requests/domain';
 import type { User, Org, Session } from './features/auth/types';
 import type { MfaSetup } from './features/security/types';
 import type { Asset } from './features/inventory/types';
 import type { Activity } from './features/processing/types';
-import type { RequestItem, RequestEvent, RequestUpdate } from './features/requests/types';
+import type { RequestItem } from './features/requests/types';
 import type { AuditItem } from './features/audit/types';
 import type { Member } from './features/organization/types';
-import RequestDetailModal from './features/requests/RequestDetailModal';
+import PrivacyRequestQueue from './features/requests/PrivacyRequestQueue';
 import InventoryPanel from './features/inventory/InventoryPanel';
 import ProcessingPanel from './features/processing/ProcessingPanel';
 
@@ -46,16 +46,10 @@ export default function App() {
   const [mfaConfirmCode, setMfaConfirmCode] = useState('');
   const [mfaPassword, setMfaPassword] = useState('');
   const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<string[]>([]);
-  const [requestFormOpen, setRequestFormOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [classificationFilter, setClassificationFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(null);
-  const [requestEvents, setRequestEvents] = useState<RequestEvent[]>([]);
-  const [eventBusy, setEventBusy] = useState(false);
-  const [requestUpdate, setRequestUpdate] = useState<RequestUpdate>({ status: '', identityVerificationStatus: 'pending', resolutionSummary: '', rejectionReason: '', assignedTo: '', dueAt: '' });
   const [auth, setAuth] = useState({ fullName: '', email: '', password: '', organizationName: '' });
-  const [request, setRequest] = useState({ requestType: 'access', description: '' });
 
   useEffect(() => { setTab(routeTab); }, [routeTab]);
 
@@ -66,7 +60,6 @@ export default function App() {
   }
 
   const canManage = session?.organization.role === 'owner' || session?.organization.role === 'admin';
-  const orgBase = session ? '/organizations/' + encodeURIComponent(session.organization.id) : '';
 
   const load = useCallback(async (current: Session, search = '') => {
     setBusy(true); setError('');
@@ -186,44 +179,6 @@ export default function App() {
     event.preventDefault(); if (!session) return;
     try { await call('/auth/mfa/disable', session.accessToken, { method: 'POST', body: JSON.stringify({ password: mfaPassword, code: mfaConfirmCode }) }); setMfaPassword(''); setMfaConfirmCode(''); setMfaRecoveryCodes([]); setMfaSetup(null); setNotice('MFA disabled and existing refresh sessions revoked. Other devices must sign in again.'); await loadMfaStatus(session); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not disable MFA.'); }
-  }
-
-  async function createRequest(event: FormEvent) {
-    event.preventDefault(); if (!session) return;
-    try {
-      await call(orgBase + '/privacy-requests', session.accessToken, { method: 'POST', body: JSON.stringify(request) });
-      setRequest({ requestType: 'access', description: '' }); setRequestFormOpen(false);
-      setNotice('Privacy request submitted.'); await load(session, query);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not submit request.'); }
-  }
-
-  async function inspectRequest(item: RequestItem) {
-    if (!session) return;
-    setSelectedRequest(item); setRequestEvents([]); setEventBusy(true);
-    setRequestUpdate({ status: statusTransitions[item.status]?.[0] ?? '', identityVerificationStatus: item.identityVerificationStatus ?? 'pending', resolutionSummary: item.resolutionSummary ?? '', rejectionReason: item.rejectionReason ?? '', assignedTo: item.assignedTo ?? '', dueAt: item.dueAt ? item.dueAt.slice(0, 10) : '' });
-    try {
-      const result = await call<{ events: RequestEvent[] }>(orgBase + '/privacy-requests/' + item._id + '/events', session.accessToken);
-      setRequestEvents(result.events);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not load request history.'); }
-    finally { setEventBusy(false); }
-  }
-
-  async function saveRequestUpdate(event: FormEvent) {
-    event.preventDefault(); if (!session || !selectedRequest) return;
-    const payload: Record<string, string | null> = {
-      identityVerificationStatus: requestUpdate.identityVerificationStatus,
-      assignedTo: requestUpdate.assignedTo || null,
-      dueAt: requestUpdate.dueAt ? new Date(requestUpdate.dueAt + 'T23:59:59').toISOString() : null,
-    };
-    if (requestUpdate.status) payload.status = requestUpdate.status;
-    if (requestUpdate.status === 'fulfilled' || selectedRequest.status === 'in_progress' || selectedRequest.status === 'awaiting_information') {
-      payload.resolutionSummary = requestUpdate.resolutionSummary;
-    }
-    if (requestUpdate.status === 'rejected') payload.rejectionReason = requestUpdate.rejectionReason;
-    try {
-      await call(orgBase + '/privacy-requests/' + selectedRequest._id, session.accessToken, { method: 'PATCH', body: JSON.stringify(payload) });
-      setSelectedRequest(null); setNotice('Privacy request workflow updated.'); await load(session, query);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not update request.'); }
   }
 
   function exportCurrent() {
@@ -357,18 +312,16 @@ export default function App() {
         onNotice={setNotice}
       />}
 
-      {tab === 'requests' && <section className="panel">
-        <div className="panel-heading"><div><p className="eyebrow">DATA SUBJECT RIGHTS OPERATIONS</p><h3>Privacy request queue <span className="count">{filteredRequests.length}</span></h3></div><button className="primary" onClick={() => setRequestFormOpen(!requestFormOpen)}>＋ New request</button></div>
-        {requestFormOpen && <form className="inline-form" onSubmit={createRequest}>
-          <label>Request type<select value={request.requestType} onChange={(e) => setRequest({ ...request, requestType: e.target.value })}><option value="access">Access</option><option value="correction">Correction</option><option value="erasure">Erasure</option><option value="portability">Portability</option><option value="withdraw_consent">Withdraw consent</option><option value="restriction">Restriction</option><option value="objection">Objection</option><option value="other">Other</option></select></label>
-          <label className="wide">Description<textarea rows={3} maxLength={2000} value={request.description} onChange={(e) => setRequest({ ...request, description: e.target.value })} placeholder="Provide context needed to triage this request. Avoid including unnecessary sensitive details." /></label>
-          <div className="form-actions"><button type="button" className="secondary" onClick={() => setRequestFormOpen(false)}>Cancel</button><button className="primary">Submit request</button></div>
-        </form>}
-        {filteredRequests.length === 0 ? <p className="empty">No matching privacy requests.</p> : <div className="request-list">{filteredRequests.map((item) => <article key={item._id}>
-          <div className="request-main"><span className="request-type">{label(item.requestType)}</span><strong>{item.description || 'No description provided'}</strong><small>Created {dateLabel(item.createdAt)}{item.dueAt ? ' · Due ' + dateLabel(item.dueAt) : ' · Due date not set'}</small></div>
-          <div className="request-meta"><span className={'tag state-' + item.status}>{label(item.status)}</span>{item.dueAt && new Date(item.dueAt).getTime() < Date.now() && !terminalStatuses.includes(item.status) && <span className="warning-text">Overdue</span>}<button className="text-action" onClick={() => void inspectRequest(item)}>Details →</button></div>
-        </article>)}</div>}
-      </section>}
+      {tab === 'requests' && session && <PrivacyRequestQueue
+        session={session}
+        requests={requests}
+        filteredRequests={filteredRequests}
+        members={members}
+        canManage={Boolean(canManage)}
+        onRefresh={() => load(session, query)}
+        onError={setError}
+        onNotice={setNotice}
+      />}
 
 
       {tab === 'security' && <section className="security-grid">
@@ -416,18 +369,5 @@ export default function App() {
       <footer><span>PrivaOps · Privacy operations workspace</span><span>Human review required for legal, risk, and identity decisions.</span></footer>
     </section>
 
-    {selectedRequest && (
-      <RequestDetailModal
-        request={selectedRequest}
-        events={requestEvents}
-        eventBusy={eventBusy}
-        canManage={Boolean(canManage)}
-        members={members}
-        update={requestUpdate}
-        setUpdate={setRequestUpdate}
-        onClose={() => setSelectedRequest(null)}
-        onSave={saveRequestUpdate}
-      />
-    )}
   </main>;
 }
