@@ -7,7 +7,13 @@ All endpoints are mounted below `/api/v1`.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | POST | `/auth/register` | Create a user, organization, owner membership, and session |
-| POST | `/auth/login` | Authenticate and select an active organization membership |
+| POST | `/auth/login` | Authenticate; returns an MFA challenge when TOTP is enabled |
+| POST | `/auth/mfa/verify-login` | Complete a one-time challenge with TOTP or recovery code |
+| GET | `/auth/mfa/status` | Return MFA state and remaining recovery-code count |
+| POST | `/auth/mfa/setup` | Create a pending TOTP authenticator secret |
+| POST | `/auth/mfa/confirm` | Verify and enable TOTP MFA |
+| POST | `/auth/mfa/recovery-codes` | Replace recovery codes after password + TOTP verification |
+| POST | `/auth/mfa/disable` | Disable MFA after password + TOTP verification; revoke refresh sessions |
 | POST | `/auth/refresh` | Rotate an opaque refresh session stored as a hash |
 | POST | `/auth/logout` | Revoke the refresh session and clear its cookie |
 | GET | `/auth/me` | Return the authenticated user and selected organization |
