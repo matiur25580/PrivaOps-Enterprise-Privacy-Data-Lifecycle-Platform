@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { buildOtpAuthUri, decryptTotpSecret, encryptTotpSecret, generateTotpSecret, verifyTotp } from './totp.js';
 
 function codeAt(secret: string, time: number) {
@@ -19,6 +19,7 @@ function codeAt(secret: string, time: number) {
 }
 
 describe('TOTP MFA primitives', () => {
+  beforeAll(() => { vi.stubEnv('ACCESS_TOKEN_SECRET', 'test-only-secret-with-at-least-32-characters'); });
   it('generates Base32 secrets and builds authenticator provisioning URIs', () => {
     const secret = generateTotpSecret();
     expect(secret).toMatch(/^[A-Z2-7]+$/);
