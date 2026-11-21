@@ -100,7 +100,15 @@ VITE_API_URL=https://<api-host>/api/v1
 
 Redeploy/rebuild the web project after changing \`VITE_API_URL\`; Vite embeds it into the generated browser bundle.
 
-## 4. Configure transactional email\n\n1. Create a Resend account and verify a sending domain.\n2. Generate an API key with permission to send mail and store it as `RESEND_API_KEY` in the API service only.\n3. Set `EMAIL_FROM` to an address on the verified sending domain.\n4. Send a test verification email and a test password-reset email. Confirm both links open the exact `WEB_ORIGIN` and expire after 30 minutes.\n5. Do not expose the provider key through `VITE_*` variables or commit it to source control.\n\n## 5. Match origins and cookie behavior
+## 4. Configure transactional email
+
+1. Create a Resend account and verify a sending domain.
+2. Generate an API key with permission to send mail and store it as `RESEND_API_KEY` in the API service only.
+3. Set `EMAIL_FROM` to an address on the verified sending domain.
+4. Send a test verification email and a test password-reset email. Confirm both links open the exact `WEB_ORIGIN` and expire after 30 minutes.
+5. Do not expose the provider key through `VITE_*` variables or commit it to source control.
+
+## 5. Match origins and cookie behavior
 
 1. Set API \`WEB_ORIGIN\` to the exact Vercel/custom web origin, including scheme and host, with no path or trailing slash. Example: \`https://app.example.com\`.
 2. Confirm the web app sends requests to the API's \`/api/v1\` base path.
