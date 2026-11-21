@@ -37,7 +37,7 @@ PrivaOps brings practical privacy operations into one organization-scoped worksp
 
 | Module | What is implemented |
 | --- | --- |
-| Identity & sessions | Organization registration, login, Argon2id password hashing, short-lived JWT access tokens, opaque refresh tokens hashed at rest, HttpOnly refresh cookie, refresh rotation, logout |
+| Identity & sessions | Organization registration, login, Argon2id password hashing, short-lived JWT access tokens, opaque refresh tokens hashed at rest, HttpOnly refresh cookie, refresh rotation, logout, encrypted TOTP MFA enrollment and login challenge |
 | Multi-tenancy | Organization membership, server-derived tenant scope, active membership checks, explicit owner/admin/member/viewer permissions |
 | Data inventory | Create, search, filter, paginate, update, and soft-archive data assets; record classification, system, owner team, data categories, and data subjects |
 | Processing register | Document processing purpose, operational legal-basis category, data categories, data subjects, systems, linked assets, and retention period |
@@ -52,7 +52,7 @@ PrivaOps brings practical privacy operations into one organization-scoped worksp
 The following are roadmap items, not existing features:
 
 - Email verification and secure password recovery.
-- Multi-factor authentication (MFA) and account recovery codes.
+- Recovery codes, email verification, and account recovery.
 - Organization invitations and self-service member lifecycle management.
 - Consent lifecycle management and consent evidence.
 - Automated retention/deletion execution and scheduled background jobs.
@@ -133,7 +133,7 @@ A view of the tenant-scoped registers available for CSV export and downstream re
 
 ## 🔄 Key workflows
 
-### 1. Map a data asset
+### Identity MFA API\n\n- `GET /api/v1/auth/mfa/status` — check whether TOTP MFA is enabled.\n- `POST /api/v1/auth/mfa/setup` — create a pending authenticator secret and provisioning URI.\n- `POST /api/v1/auth/mfa/confirm` — verify the first code and enable MFA.\n- `POST /api/v1/auth/mfa/disable` — require the current password and authenticator code; revoke refresh sessions.\n- `POST /api/v1/auth/mfa/verify-login` — complete a five-minute MFA challenge returned by password login.\n\nMFA secrets are encrypted at rest using a key derived from `ACCESS_TOKEN_SECRET`; rotating that secret requires users to re-enroll MFA. Store and rotate the signing secret securely. The login challenge is short-lived but currently not single-use; a production rollout should add persisted one-time challenge consumption and recovery codes.\n\n### 1. Map a data asset
 1. An authorized workspace operator opens Data inventory.
 2. They register a system, owner team, classification, data categories, and data-subject groups.
 3. The API validates the payload and stores the asset under the authenticated organization.
@@ -236,6 +236,7 @@ A view of the tenant-scoped registers available for CSV export and downstream re
 - **Login timing:** unknown-account login attempts perform a dummy Argon2id verification to reduce account-enumeration timing differences.
 - **Access tokens:** short-lived signed JWTs with issuer and audience validation.
 - **Refresh sessions:** cryptographically random opaque tokens, SHA-256 hashes at rest, HttpOnly cookies, rotation, and logout revocation.
+- **TOTP MFA:** encrypted authenticator secrets, enrollment confirmation, short-lived MFA-only login challenges, time-window verification, password-plus-code disable, and refresh-session revocation on disable.
 - **Tenant isolation:** server-derived organization scope, active membership validation, organization-scoped database filters, and same-tenant reference validation.
 - **Authorization:** explicit API permission matrix for owner, admin, member, and viewer roles.
 - **Request validation:** Zod schemas and bounded JSON payloads.
@@ -245,7 +246,7 @@ A view of the tenant-scoped registers available for CSV export and downstream re
 
 ### Residual risks before real personal data
 
-- Email verification, MFA, password recovery, and invitation flows are not implemented.
+- Email verification, password recovery, recovery codes, and invitation flows are not implemented. TOTP MFA is available through the API; a browser settings interface and recovery mechanism remain roadmap items.
 - Refresh-session logout does not instantly revoke an already-issued access token; access tokens remain valid until expiry unless account/membership checks reject the request.
 - Production cookie behavior depends on exact HTTPS origins and browser third-party-cookie policies. Same-site custom domains are preferred.
 - The default in-memory rate limiter is not a distributed abuse-control strategy for multi-instance deployments.
