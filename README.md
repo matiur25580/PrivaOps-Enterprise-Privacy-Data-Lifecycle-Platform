@@ -247,7 +247,7 @@ A view of the tenant-scoped registers available for CSV export and downstream re
 
 ### Residual risks before real personal data
 
-- Email verification, password recovery, recovery codes, and invitation flows are not implemented. TOTP MFA is available through the API; a browser settings interface and recovery mechanism remain roadmap items.
+- Email verification, password recovery, and invitation flows are not implemented. TOTP MFA, one-time recovery codes, and browser security settings are implemented; recovery codes are shown only once and must be stored safely.
 - Refresh-session logout does not instantly revoke an already-issued access token; access tokens remain valid until expiry unless account/membership checks reject the request.
 - Production cookie behavior depends on exact HTTPS origins and browser third-party-cookie policies. Same-site custom domains are preferred.
 - The default in-memory rate limiter is not a distributed abuse-control strategy for multi-instance deployments.
