@@ -124,7 +124,7 @@ identityRouter.post('/auth/register', authLimiter, requireTrustedOrigin, async (
     try {
       await issueEmailAction(userId, email, user.fullName, 'email_verification');
     } catch (error) {
-      request.log?.error?.({ error }, 'Could not send registration verification email');
+      console.error('Could not send registration verification email:', error);
     }
     response.status(201).json({
       data: {
@@ -175,8 +175,8 @@ identityRouter.post('/auth/email/verification/resend', authLimiter, requireTrust
   }
   const user = await User.findOne({ email: parsed.data.email.toLowerCase(), status: 'active' }).select('fullName email emailVerified');
   if (user && user.emailVerified === false) {
-    try { await issueEmailAction(String(user._id), user.email, user.fullName, 'email_verification'); }
-    catch (error) { request.log?.error?.({ error }, 'Could not resend verification email'); }
+    void issueEmailAction(String(user._id), user.email, user.fullName, 'email_verification')
+      .catch((error: unknown) => console.error('Could not resend verification email:', error));
   }
   response.status(202).json({ data: { message: 'If this account needs verification, an email will be sent shortly.' } });
 });
@@ -189,8 +189,8 @@ identityRouter.post('/auth/password/forgot', authLimiter, requireTrustedOrigin, 
   }
   const user = await User.findOne({ email: parsed.data.email.toLowerCase(), status: 'active' }).select('fullName email');
   if (user) {
-    try { await issueEmailAction(String(user._id), user.email, user.fullName, 'password_reset'); }
-    catch (error) { request.log?.error?.({ error }, 'Could not send password reset email'); }
+    void issueEmailAction(String(user._id), user.email, user.fullName, 'password_reset')
+      .catch((error: unknown) => console.error('Could not send password reset email:', error));
   }
   response.status(202).json({ data: { message: 'If an active account exists for that address, a password reset link will be sent shortly.' } });
 });
