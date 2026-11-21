@@ -11,10 +11,6 @@ All endpoints are mounted below `/api/v1`.
 | POST | `/auth/email/verification/resend` | Resend verification link with a generic response |
 | POST | `/auth/password/forgot` | Request a password reset link without account enumeration |
 | POST | `/auth/password/reset` | Change password and revoke refresh sessions |
-| POST | `/auth/email/verify` | Verify an expiring, one-time email token |
-| POST | `/auth/email/verification/resend` | Resend verification link with a generic response |
-| POST | `/auth/password/forgot` | Request a reset link without account enumeration |
-| POST | `/auth/password/reset` | Change password and revoke refresh sessions |
 | POST | `/auth/login` | Authenticate; returns an MFA challenge when TOTP is enabled |
 | POST | `/auth/mfa/verify-login` | Complete a one-time challenge with TOTP or recovery code |
 | GET | `/auth/mfa/status` | Return MFA state and remaining recovery-code count |
