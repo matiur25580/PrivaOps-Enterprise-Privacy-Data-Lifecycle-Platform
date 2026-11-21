@@ -112,6 +112,7 @@ export default function App() {
   const [actionToken, setActionToken] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [emailBusy, setEmailBusy] = useState(false);
+  const [emailDeliveryPending, setEmailDeliveryPending] = useState(false);
   const actionHandled = useRef(false);
   const [assetFormOpen, setAssetFormOpen] = useState(false);
   const [activityFormOpen, setActivityFormOpen] = useState(false);
@@ -220,8 +221,8 @@ export default function App() {
       const payload = mode === 'login'
         ? { email: auth.email, password: auth.password }
         : auth;
-      const result = await call<{ mfaRequired?: boolean; challengeToken?: string; emailVerificationRequired?: boolean; message?: string; accessToken?: string; user?: User; organization?: Org }>(path, undefined, { method: 'POST', body: JSON.stringify(payload) });
-      if (result.emailVerificationRequired) { setEmailFlow('verifyPending'); setNotice(result.message || 'Your account was created. Verify your email before signing in.'); return; }
+      const result = await call<{ mfaRequired?: boolean; challengeToken?: string; emailVerificationRequired?: boolean; emailDeliveryPending?: boolean; message?: string; accessToken?: string; user?: User; organization?: Org }>(path, undefined, { method: 'POST', body: JSON.stringify(payload) });
+      if (result.emailVerificationRequired) { setEmailFlow('verifyPending'); setEmailDeliveryPending(Boolean(result.emailDeliveryPending)); setNotice(result.message || 'Your account was created. Verify your email before signing in.'); return; }
       if (result.mfaRequired && result.challengeToken) { setMfaChallenge(result.challengeToken); setMfaCode(''); setMfaRecoveryMode(false); setNotice('Password verified. Complete the second authentication step.'); return; }
       if (!result.accessToken || !result.organization || !result.user) throw new Error('The authentication response was incomplete.');
       activeAccessToken = result.accessToken;
@@ -422,7 +423,7 @@ export default function App() {
       {notice && <p className="alert success" role="status">{notice}</p>}
       {emailFlow === 'verifying' ? <div className="auth-flow-card"><p>Verifying your email link…</p></div>
       : emailFlow === 'verifyPending' ? <form className="auth-flow-card" onSubmit={resendVerification}>
-        <h3>Check your inbox</h3><p>We sent a verification link to <strong>{auth.email}</strong>. Verify your address before signing in. The link expires in 30 minutes.</p>
+        <h3>{emailDeliveryPending ? 'Email delivery needs attention' : 'Check your inbox'}</h3><p>{emailDeliveryPending ? 'Your account is saved but remains inactive. An administrator must configure transactional email before a verification link can be delivered.' : <>We sent a verification link to <strong>{auth.email}</strong>. Verify your address before signing in. The link expires in 30 minutes.</>}</p>
         <label>Email address<input type="email" required value={auth.email} onChange={(e) => setAuth({ ...auth, email: e.target.value })} /></label>
         {error && <p className="alert error" role="alert">{error}</p>}
         <button className="primary full" disabled={emailBusy}>{emailBusy ? 'Sending…' : 'Resend verification email'}</button>
