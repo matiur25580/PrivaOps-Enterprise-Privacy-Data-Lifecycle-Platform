@@ -175,7 +175,7 @@ identityRouter.post('/auth/login', authLimiter, requireTrustedOrigin, async (req
 
 const mfaLoginSchema = z.object({
   challengeToken: z.string().min(20).max(4096),
-  code: z.string().regex(/^\\d{6}$/).optional(),
+  code: z.string().regex(/^\d{6}$/).optional(),
   recoveryCode: z.string().min(20).max(40).optional(),
 }).refine((value) => Boolean(value.code) !== Boolean(value.recoveryCode), 'Provide exactly one authenticator or recovery code.');
 identityRouter.post('/auth/mfa/verify-login', authLimiter, requireTrustedOrigin, async (request, response) => {
@@ -286,7 +286,7 @@ identityRouter.post('/auth/mfa/confirm', authenticate, authLimiter, async (reque
 });
 
 
-const recoveryGenerateSchema = z.object({ password: z.string().min(1).max(128), code: z.string().regex(/^\\d{6}$/) });
+const recoveryGenerateSchema = z.object({ password: z.string().min(1).max(128), code: z.string().regex(/^\d{6}$/) });
 identityRouter.post('/auth/mfa/recovery-codes', authenticate, authLimiter, async (request, response) => {
   const parsed = recoveryGenerateSchema.safeParse(request.body);
   if (!parsed.success) {
