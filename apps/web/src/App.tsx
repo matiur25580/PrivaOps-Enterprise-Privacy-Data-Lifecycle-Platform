@@ -8,9 +8,10 @@ import type { User, Org, Session } from './features/auth/types';
 import type { MfaSetup } from './features/security/types';
 import type { Asset } from './features/inventory/types';
 import type { Activity } from './features/processing/types';
-import type { RequestItem, RequestEvent } from './features/requests/types';
+import type { RequestItem, RequestEvent, RequestUpdate } from './features/requests/types';
 import type { AuditItem } from './features/audit/types';
 import type { Member } from './features/organization/types';
+import RequestDetailModal from './features/requests/RequestDetailModal';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -52,7 +53,7 @@ export default function App() {
   const [selectedRequest, setSelectedRequest] = useState<RequestItem | null>(null);
   const [requestEvents, setRequestEvents] = useState<RequestEvent[]>([]);
   const [eventBusy, setEventBusy] = useState(false);
-  const [requestUpdate, setRequestUpdate] = useState({ status: '', identityVerificationStatus: 'pending', resolutionSummary: '', rejectionReason: '', assignedTo: '', dueAt: '' });
+  const [requestUpdate, setRequestUpdate] = useState<RequestUpdate>({ status: '', identityVerificationStatus: 'pending', resolutionSummary: '', rejectionReason: '', assignedTo: '', dueAt: '' });
   const [auth, setAuth] = useState({ fullName: '', email: '', password: '', organizationName: '' });
   const [asset, setAsset] = useState({ name: '', system: '', ownerTeam: '', classification: 'internal', description: '', dataCategories: '', dataSubjects: '' });
   const [activity, setActivity] = useState({ name: '', purpose: '', legalBasis: 'consent', dataCategories: '', dataSubjects: '', systems: '', assetIds: '', retentionPeriodDays: '365' });
@@ -466,21 +467,18 @@ export default function App() {
       <footer><span>PrivaOps · Privacy operations workspace</span><span>Human review required for legal, risk, and identity decisions.</span></footer>
     </section>
 
-    {selectedRequest && <div className="modal-backdrop" role="presentation" onClick={() => setSelectedRequest(null)}><section className="modal" role="dialog" aria-modal="true" aria-labelledby="request-detail-title" onClick={(e) => e.stopPropagation()}>
-      <div className="modal-heading"><div><p className="eyebrow">REQUEST DETAIL</p><h2 id="request-detail-title">{label(selectedRequest.requestType)} request</h2></div><button className="icon-button" onClick={() => setSelectedRequest(null)} aria-label="Close details">×</button></div>
-      <div className="detail-grid"><div><small>Current status</small><strong>{label(selectedRequest.status)}</strong></div><div><small>Identity verification</small><strong>{label(selectedRequest.identityVerificationStatus ?? 'pending')}</strong></div><div><small>Submitted</small><strong>{dateLabel(selectedRequest.createdAt)}</strong></div><div><small>Due date</small><strong>{dateLabel(selectedRequest.dueAt)}</strong></div></div>
-      <div className="detail-description"><small>Request description</small><p>{selectedRequest.description || 'No description provided.'}</p></div>
-      <div className="timeline"><h3>Request history</h3>{eventBusy ? <p className="empty">Loading history…</p> : requestEvents.map((item) => <article key={item._id}><span /><div><strong>{label(item.action)}</strong><small>{item.changedFields.map(label).join(', ')}</small><time>{new Date(item.createdAt).toLocaleString()}</time></div></article>)}</div>
-      {canManage && !terminalStatuses.includes(selectedRequest.status) && <form className="inline-form modal-form" onSubmit={saveRequestUpdate}>
-        <p className="eyebrow wide">WORKFLOW ACTION</p>
-        <label>Identity verification<select value={requestUpdate.identityVerificationStatus} onChange={(e) => setRequestUpdate({ ...requestUpdate, identityVerificationStatus: e.target.value })}><option value="pending">Pending</option><option value="verified">Verified</option><option value="failed">Failed</option></select></label>
-        <label>Next status<select value={requestUpdate.status} onChange={(e) => setRequestUpdate({ ...requestUpdate, status: e.target.value })}><option value="">Keep current status</option>{(statusTransitions[selectedRequest.status] ?? []).map((value) => <option key={value} value={value}>{label(value)}</option>)}</select></label>
-        <label>Assigned owner<select value={requestUpdate.assignedTo} onChange={(e) => setRequestUpdate({ ...requestUpdate, assignedTo: e.target.value })}><option value="">Unassigned</option>{members.map((member) => <option key={member.user.id} value={member.user.id}>{member.user.fullName} · {member.role}</option>)}</select></label>
-        <label>Operational due date<input type="date" value={requestUpdate.dueAt} onChange={(e) => setRequestUpdate({ ...requestUpdate, dueAt: e.target.value })} /></label>
-        {requestUpdate.status === 'fulfilled' && <label className="wide">Resolution summary<textarea required rows={2} value={requestUpdate.resolutionSummary} onChange={(e) => setRequestUpdate({ ...requestUpdate, resolutionSummary: e.target.value })} /></label>}
-        {requestUpdate.status === 'rejected' && <label className="wide">Rejection reason<textarea required rows={2} value={requestUpdate.rejectionReason} onChange={(e) => setRequestUpdate({ ...requestUpdate, rejectionReason: e.target.value })} /></label>}
-        <div className="form-actions"><button type="button" className="secondary" onClick={() => setSelectedRequest(null)}>Close</button><button className="primary">Save workflow update</button></div>
-      </form>}
-    </section></div>}
+    {selectedRequest && (
+      <RequestDetailModal
+        request={selectedRequest}
+        events={requestEvents}
+        eventBusy={eventBusy}
+        canManage={Boolean(canManage)}
+        members={members}
+        update={requestUpdate}
+        setUpdate={setRequestUpdate}
+        onClose={() => setSelectedRequest(null)}
+        onSave={saveRequestUpdate}
+      />
+    )}
   </main>;
 }
