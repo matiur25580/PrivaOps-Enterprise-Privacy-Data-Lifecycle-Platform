@@ -39,7 +39,7 @@ Create a **new Web Service** from the PrivaOps GitHub repository. Do not reuse a
 | Setting | Value |
 | --- | --- |
 | Repository | `matiur25580/PrivaOps-Enterprise-Privacy-Data-Lifecycle-Platform` |
-| Branch | `main` after PR #6 is reviewed and merged; otherwise use the reviewed feature branch |
+| Branch | `main` after the relevant reviewed feature PR is merged |
 | Root directory | Repository root (blank) |
 | Runtime | Node |
 | Node version | 22.x |
