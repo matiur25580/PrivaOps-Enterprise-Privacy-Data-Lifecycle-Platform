@@ -58,3 +58,8 @@ Recommended follow-up work:
 For Vercel, set the project root to the repository root, use the Next.js framework preset, install with `npm install`, and build with `npm run build --workspace @privaops/web`. Do not configure a static output directory. Set `NEXT_PUBLIC_API_URL` to the public API base URL before the build.
 
 The Express API deployment remains unchanged. Update its `WEB_ORIGIN` to the exact deployed web origin and validate refresh-cookie behavior over HTTPS.
+
+
+## Feature route decomposition
+
+Primary workspace areas now have deep-linkable App Router paths: `/`, `/inventory`, `/processing`, `/requests`, `/activity`, and `/security`. The shared client workspace synchronizes active navigation with the current pathname. See [APP_ROUTER_ROUTES.md](./APP_ROUTER_ROUTES.md) for the route map and authorization boundary.
