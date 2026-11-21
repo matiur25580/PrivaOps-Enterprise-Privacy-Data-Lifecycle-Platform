@@ -52,7 +52,6 @@ PrivaOps brings practical privacy operations into one organization-scoped worksp
 The following are roadmap items, not existing features:
 
 - Secure organization invitations and self-service member lifecycle management.
-- Organization invitations and self-service member lifecycle management.
 - Consent lifecycle management and consent evidence.
 - Automated retention/deletion execution and scheduled background jobs.
 - Incident response, vendor risk management, and DPIA workflows.
@@ -132,15 +131,13 @@ A view of the tenant-scoped registers available for CSV export and downstream re
 
 ## 🔄 Key workflows
 
-### Identity MFA API
+### Account security workflows
 
-- `GET /api/v1/auth/mfa/status` — check whether TOTP MFA is enabled.
-- `POST /api/v1/auth/mfa/setup` — create a pending authenticator secret and provisioning URI.
-- `POST /api/v1/auth/mfa/confirm` — verify the first code and enable MFA.
-- `POST /api/v1/auth/mfa/disable` — require the current password and authenticator code; revoke refresh sessions.
-- `POST /api/v1/auth/mfa/verify-login` — complete a five-minute MFA challenge returned by password login.
-
-MFA secrets are encrypted at rest using a key derived from `ACCESS_TOKEN_SECRET`; rotating that secret requires users to re-enroll MFA. Store and rotate the signing secret securely. The login challenge is short-lived but currently not single-use; a production rollout should add persisted one-time challenge consumption and recovery codes.
+- New registrations require email verification before sign-in.
+- Verification and password-reset links expire after 30 minutes and can be used once.
+- Forgot-password and resend-verification endpoints use generic responses to reduce account enumeration.
+- Password reset hashes the new password with Argon2id and revokes refresh sessions.
+- TOTP MFA and single-use recovery codes remain available from Security settings.
 
 ### 1. Map a data asset
 1. An authorized workspace operator opens Data inventory.
