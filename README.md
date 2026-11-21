@@ -364,7 +364,7 @@ Default local URLs:
 | `ACCESS_TOKEN_TTL_SECONDS` | No | Access-token lifetime; default 900 seconds |
 | `REFRESH_TOKEN_TTL_DAYS` | No | Refresh-session lifetime; default 7 days |
 | `RESEND_API_KEY` | Required in production | Resend API key for verification and password-reset emails; omitted in development to log local links |
-| `EMAIL_FROM` | No | Verified sender identity; defaults to Resend test sender |
+| `EMAIL_FROM` | Required in production | Sender address verified in Resend; set to a domain you control |
 
 ### Web — `apps/web/.env`
 
