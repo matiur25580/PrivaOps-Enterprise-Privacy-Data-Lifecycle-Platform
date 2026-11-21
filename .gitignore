@@ -8,3 +8,7 @@ coverage/
 .DS_Store
 *.log
 npm-debug.log*
+
+# Next.js build output
+apps/web/.next/
+apps/web/out/
