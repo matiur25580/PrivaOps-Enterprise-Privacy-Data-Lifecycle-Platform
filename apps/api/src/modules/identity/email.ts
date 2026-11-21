@@ -24,9 +24,8 @@ export async function sendAccountActionEmail(input: {
   purpose: EmailActionPurpose;
   token: string;
 }) {
-  const path = input.purpose === 'email_verification' ? '/?verifyEmail=' : '/?resetPassword=';
-  const url = new URL(path, env.WEB_ORIGIN);
-  url.searchParams.set(input.purpose === 'email_verification' ? 'token' : 'token', input.token);
+  const url = new URL('/', env.WEB_ORIGIN);
+  url.searchParams.set(input.purpose === 'email_verification' ? 'verifyEmail' : 'resetPassword', input.token);
   const action = input.purpose === 'email_verification' ? 'Verify your email address' : 'Reset your PrivaOps password';
   const safeName = escapeHtml(input.fullName);
   const safeUrl = escapeHtml(url.toString());
