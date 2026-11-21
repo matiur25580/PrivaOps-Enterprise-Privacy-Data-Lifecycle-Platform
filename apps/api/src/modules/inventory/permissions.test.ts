@@ -14,6 +14,13 @@ describe('data inventory permissions', () => {
     expect(hasPermission('viewer', 'data:manage')).toBe(false);
   });
 
+  it('restricts organization audit history to owners and admins', () => {
+    expect(hasPermission('owner', 'audit:read')).toBe(true);
+    expect(hasPermission('admin', 'audit:read')).toBe(true);
+    expect(hasPermission('member', 'audit:read')).toBe(false);
+    expect(hasPermission('viewer', 'audit:read')).toBe(false);
+  });
+
   it('keeps the permission matrix explicit for all roles', () => {
     expect(ROLE_PERMISSIONS.owner).toContain('data:manage');
     expect(ROLE_PERMISSIONS.member).not.toContain('data:manage');

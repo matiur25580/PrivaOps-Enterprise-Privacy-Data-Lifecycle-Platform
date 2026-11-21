@@ -27,7 +27,7 @@ export function getRefreshCookieOptions() {
   return {
     httpOnly: true,
     secure: env.NODE_ENV === 'production',
-    sameSite: 'strict' as const,
+    sameSite: env.NODE_ENV === 'production' ? 'none' as const : 'lax' as const,
     path: '/api/v1/auth',
     maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
   };
