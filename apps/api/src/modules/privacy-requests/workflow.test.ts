@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canFulfillPrivacyRequest, canTransitionPrivacyRequestStatus } from './workflow.js';
+import { canActorFulfillPrivacyRequest, canFulfillPrivacyRequest, canTransitionPrivacyRequestStatus } from './workflow.js';
 
 describe('privacy request lifecycle', () => {
   it('allows the expected operational transitions', () => {
@@ -25,5 +25,20 @@ describe('privacy request lifecycle', () => {
     expect(canFulfillPrivacyRequest('pending')).toBe(false);
     expect(canFulfillPrivacyRequest('failed')).toBe(false);
     expect(canFulfillPrivacyRequest('verified')).toBe(true);
+  });
+});
+
+
+describe('privacy request separation of duties', () => {
+  it('prevents a requester from fulfilling their own request', () => {
+    expect(canActorFulfillPrivacyRequest('verified', 'user-1', 'user-1')).toBe(false);
+  });
+
+  it('allows a different authorized actor to fulfill after identity verification', () => {
+    expect(canActorFulfillPrivacyRequest('verified', 'user-1', 'user-2')).toBe(true);
+  });
+
+  it('still requires verified identity for a different actor', () => {
+    expect(canActorFulfillPrivacyRequest('pending', 'user-1', 'user-2')).toBe(false);
   });
 });
