@@ -6,7 +6,7 @@ import { hasPermission } from '../identity/types.js';
 import { Membership } from '../identity/models.js';
 import { PrivacyRequest, PrivacyRequestEvent, type PrivacyRequestStatus } from './models.js';
 import { canActorFulfillPrivacyRequest, canTransitionPrivacyRequestStatus } from './workflow.js';
-import { organizationRequestFilter, ownPrivacyRequestFilter } from './scope.js';
+import { organizationRequestFilter, ownPrivacyRequestFilter, privacyRequestCompareAndSetFilter } from './scope.js';
 
 export const privacyRequestRouter = Router();
 
@@ -268,7 +268,12 @@ privacyRequestRouter.patch(
     }
     const changedFields = Object.keys(parsed.data);
     const updated = await PrivacyRequest.findOneAndUpdate(
-      organizationRequestFilter(request.auth!.organizationId, { _id: id.data, status: current.status }),
+      privacyRequestCompareAndSetFilter(
+        request.auth!.organizationId,
+        id.data,
+        current.status,
+        current.identityVerificationStatus,
+      ),
       { $set: parsed.data },
       { new: true, runValidators: true },
     );
