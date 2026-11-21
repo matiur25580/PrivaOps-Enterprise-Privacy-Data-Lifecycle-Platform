@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { SignJWT } from 'jose';
+import { SignJWT, jwtVerify } from 'jose';
 import { env } from '../../env.js';
 
 const secret = new TextEncoder().encode(env.ACCESS_TOKEN_SECRET);
@@ -31,4 +31,24 @@ export function getRefreshCookieOptions() {
     path: '/api/v1/auth',
     maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
   };
+}
+export async function createMfaChallengeToken(input: { userId: string; organizationId: string }) {
+  return new SignJWT({ organizationId: input.organizationId, purpose: 'mfa-challenge' })
+    .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
+    .setSubject(input.userId)
+    .setIssuer('privaops-api')
+    .setAudience('privaops-mfa')
+    .setIssuedAt()
+    .setExpirationTime('5m')
+    .sign(secret);
+}
+
+export async function verifyMfaChallengeToken(token: string) {
+  const { payload } = await jwtVerify(token, secret, {
+    issuer: 'privaops-api', audience: 'privaops-mfa', algorithms: ['HS256'],
+  });
+  if (payload.purpose !== 'mfa-challenge' || !payload.sub || typeof payload.organizationId !== 'string') {
+    throw new Error('Invalid MFA challenge');
+  }
+  return { userId: payload.sub, organizationId: payload.organizationId };
 }
