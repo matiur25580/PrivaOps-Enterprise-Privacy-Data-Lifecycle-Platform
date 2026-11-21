@@ -335,7 +335,6 @@ export default function App() {
 
       {tab === 'assets' && session && <InventoryPanel
         session={session}
-        assets={assets}
         filteredAssets={filteredAssets}
         canManage={Boolean(canManage)}
         loading={busy}
