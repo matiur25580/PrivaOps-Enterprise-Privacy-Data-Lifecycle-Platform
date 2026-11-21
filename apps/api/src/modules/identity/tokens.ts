@@ -4,7 +4,7 @@ import { env } from '../../env.js';
 
 const secret = new TextEncoder().encode(env.ACCESS_TOKEN_SECRET);
 
-export async function createAccessToken(input: { userId: string; organizationId: string }) {
+export async function createAccessToken(input: { userId: string; organizationId: string; tokenId: string }) {
   return new SignJWT({ organizationId: input.organizationId })
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setSubject(input.userId)
@@ -33,7 +33,7 @@ export function getRefreshCookieOptions() {
   };
 }
 export async function createMfaChallengeToken(input: { userId: string; organizationId: string }) {
-  return new SignJWT({ organizationId: input.organizationId, purpose: 'mfa-challenge' })
+  return new SignJWT({ organizationId: input.organizationId, purpose: 'mfa-challenge', jti: input.tokenId })
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setSubject(input.userId)
     .setIssuer('privaops-api')
@@ -47,8 +47,8 @@ export async function verifyMfaChallengeToken(token: string) {
   const { payload } = await jwtVerify(token, secret, {
     issuer: 'privaops-api', audience: 'privaops-mfa', algorithms: ['HS256'],
   });
-  if (payload.purpose !== 'mfa-challenge' || !payload.sub || typeof payload.organizationId !== 'string') {
+  if (payload.purpose !== 'mfa-challenge' || !payload.sub || typeof payload.organizationId !== 'string' || typeof payload.jti !== 'string') {
     throw new Error('Invalid MFA challenge');
   }
-  return { userId: payload.sub, organizationId: payload.organizationId };
+  return { userId: payload.sub, organizationId: payload.organizationId, tokenId: payload.jti };
 }
