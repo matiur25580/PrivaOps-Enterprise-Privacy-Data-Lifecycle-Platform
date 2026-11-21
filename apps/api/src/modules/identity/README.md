@@ -6,7 +6,7 @@ All endpoints are mounted below `/api/v1`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| POST | `/auth/register` | Create a user, organization, owner membership, and session |
+| POST | `/auth/register` | Create a pending account and send a verification email |\n| POST | `/auth/email/verify` | Verify an expiring, one-time email token |\n| POST | `/auth/email/verification/resend` | Resend verification link with a generic response |\n| POST | `/auth/password/forgot` | Request a password reset link without account enumeration |\n| POST | `/auth/password/reset` | Change password and revoke refresh sessions |
 | POST | `/auth/login` | Authenticate; returns an MFA challenge when TOTP is enabled |
 | POST | `/auth/mfa/verify-login` | Complete a one-time challenge with TOTP or recovery code |
 | GET | `/auth/mfa/status` | Return MFA state and remaining recovery-code count |
@@ -22,7 +22,7 @@ All endpoints are mounted below `/api/v1`.
 
 ## Authentication model
 
-- Passwords are hashed with Argon2id; plaintext passwords are never persisted.
+- Passwords are hashed with Argon2id; plaintext passwords are never persisted.\n- New registrations remain pending until the email address is verified. Existing user records without the flag remain compatible.\n- Verification and password-reset tokens are 256-bit random values; only SHA-256 hashes are stored. Tokens expire after 30 minutes and are consumed once.\n- Password reset revokes all refresh sessions. Forgot-password and resend-verification responses do not reveal whether an email is registered.
 - Access tokens are short-lived signed JWTs (15 minutes by default).
 - Refresh tokens are random opaque values. Only SHA-256 hashes are stored in MongoDB.
 - Refresh tokens are delivered in an HttpOnly cookie scoped to the auth path. Development uses SameSite=Lax; production uses Secure + SameSite=None for separately hosted browser/API origins. Prefer same-site custom domains and verify browser third-party-cookie behavior.
@@ -39,7 +39,7 @@ Do not build organization-owned queries from a client-supplied tenant ID alone. 
 
 ## Local secrets
 
-Set `ACCESS_TOKEN_SECRET` to a random value of at least 32 characters. Generate one with:
+Set `ACCESS_TOKEN_SECRET` to a random value of at least 32 characters. In production, configure `RESEND_API_KEY` and a verified `EMAIL_FROM` sender. In development, account-action links are logged to the API console. Generate one with:
 
 ```bash
 openssl rand -base64 48
