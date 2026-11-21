@@ -7,6 +7,7 @@ interface UserRecord {
   totpEnabled: boolean;
   totpSecretEncrypted?: string;
   totpPendingSecretEncrypted?: string;
+  recoveryCodeHashes: string[];
   status: 'active' | 'suspended';
 }
 interface OrganizationRecord {
@@ -43,6 +44,7 @@ const userSchema = new Schema({
   totpEnabled: { type: Boolean, default: false, select: false },
   totpSecretEncrypted: { type: String, select: false },
   totpPendingSecretEncrypted: { type: String, select: false },
+  recoveryCodeHashes: { type: [String], default: [], select: false },
   status: { type: String, enum: ['active', 'suspended'], default: 'active', index: true },
 }, { timestamps: true });
 
