@@ -23,8 +23,8 @@ export async function sendAccountActionEmail(input: {
   const html = `<div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#24372b"><h2>${action}</h2><p>Hello ${safeName},</p><p>${input.purpose === 'email_verification' ? 'Confirm this email address to activate your PrivaOps sign-in.' : 'A password reset was requested for your account. If you did not request this, you can ignore this email.'}</p><p><a href="${safeUrl}" style="display:inline-block;padding:12px 18px;background:#176b48;color:#fff;text-decoration:none;border-radius:6px">${action}</a></p><p>This link expires in 30 minutes and can be used once.</p><p>If the button does not work, open this link:</p><p>${safeUrl}</p></div>`;
   const subject = input.purpose === 'email_verification' ? 'Verify your PrivaOps email' : 'Reset your PrivaOps password';
 
-  if (!env.RESEND_API_KEY) {
-    if (env.NODE_ENV === 'production') throw new Error('Email delivery is not configured. Set RESEND_API_KEY before enabling account email workflows.');
+  if (!env.RESEND_API_KEY || !env.EMAIL_FROM) {
+    if (env.NODE_ENV === 'production') throw new Error('Email delivery is not configured. Set RESEND_API_KEY and EMAIL_FROM before enabling account email workflows.');
     console.info(`[development email] ${subject} for ${input.to}: ${url.toString()}`);
     return;
   }
