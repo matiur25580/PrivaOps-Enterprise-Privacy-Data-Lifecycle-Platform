@@ -173,7 +173,11 @@ identityRouter.post('/auth/login', authLimiter, requireTrustedOrigin, async (req
 });
 
 
-const mfaLoginSchema = z.object({ challengeToken: z.string().min(20).max(4096), code: z.string().regex(/^\d{6}$/) });
+const mfaLoginSchema = z.object({
+  challengeToken: z.string().min(20).max(4096),
+  code: z.string().regex(/^\\d{6}$/).optional(),
+  recoveryCode: z.string().min(20).max(40).optional(),
+}).refine((value) => Boolean(value.code) !== Boolean(value.recoveryCode), 'Provide exactly one authenticator or recovery code.');
 identityRouter.post('/auth/mfa/verify-login', authLimiter, requireTrustedOrigin, async (request, response) => {
   const parsed = mfaLoginSchema.safeParse(request.body);
   if (!parsed.success) {
@@ -187,7 +191,7 @@ identityRouter.post('/auth/mfa/verify-login', authLimiter, requireTrustedOrigin,
     return;
   }
   const [user, membership, organization] = await Promise.all([
-    User.findOne({ _id: challenge.userId, status: 'active' }).select('+totpEnabled +totpSecretEncrypted fullName email'),
+    User.findOne({ _id: challenge.userId, status: 'active' }).select('+totpEnabled +totpSecretEncrypted +recoveryCodeHashes fullName email'),
     Membership.findOne({ userId: challenge.userId, organizationId: challenge.organizationId, status: 'active' }),
     Organization.findOne({ _id: challenge.organizationId, status: 'active' }),
   ]);
@@ -195,7 +199,12 @@ identityRouter.post('/auth/mfa/verify-login', authLimiter, requireTrustedOrigin,
     response.status(401).json({ error: { code: 'MFA_ACCESS_REVOKED', message: 'The account or MFA configuration is no longer active.' } });
     return;
   }
-  const valid = verifyTotp(decryptTotpSecret(user.totpSecretEncrypted), parsed.data.code);
+  const recoveryHash = parsed.data.recoveryCode
+    ? hashRefreshToken(parsed.data.recoveryCode.replace(/[^a-f0-9]/giu, '').toLowerCase())
+    : undefined;
+  const valid = parsed.data.code
+    ? verifyTotp(decryptTotpSecret(user.totpSecretEncrypted), parsed.data.code)
+    : Boolean(recoveryHash && user.recoveryCodeHashes.includes(recoveryHash));
   if (!valid) {
     response.status(401).json({ error: { code: 'INVALID_MFA_CODE', message: 'The authenticator code is incorrect or expired.' } });
     return;
@@ -204,6 +213,16 @@ identityRouter.post('/auth/mfa/verify-login', authLimiter, requireTrustedOrigin,
   if (!consumedChallenge) {
     response.status(401).json({ error: { code: 'MFA_CHALLENGE_USED', message: 'The MFA challenge has expired or was already used.' } });
     return;
+  }
+  if (recoveryHash) {
+    const consumedRecovery = await User.findOneAndUpdate(
+      { _id: user._id, recoveryCodeHashes: recoveryHash },
+      { $pull: { recoveryCodeHashes: recoveryHash } },
+    );
+    if (!consumedRecovery) {
+      response.status(401).json({ error: { code: 'RECOVERY_CODE_USED', message: 'This recovery code has already been used.' } });
+      return;
+    }
   }
   const tokens = await issueSession(String(user._id), String(organization._id), response);
   response.status(200).json({
@@ -217,8 +236,8 @@ identityRouter.post('/auth/mfa/verify-login', authLimiter, requireTrustedOrigin,
 
 const mfaCodeSchema = z.object({ code: z.string().regex(/^\d{6}$/) });
 identityRouter.get('/auth/mfa/status', authenticate, async (request, response) => {
-  const user = await User.findById(request.auth!.userId).select('+totpEnabled').lean();
-  response.status(200).json({ data: { enabled: Boolean(user?.totpEnabled) } });
+  const user = await User.findById(request.auth!.userId).select('+totpEnabled +recoveryCodeHashes').lean();
+  response.status(200).json({ data: { enabled: Boolean(user?.totpEnabled), recoveryCodesRemaining: user?.recoveryCodeHashes.length ?? 0 } });
 });
 
 identityRouter.post('/auth/mfa/setup', authenticate, authLimiter, async (request, response) => {
@@ -266,6 +285,36 @@ identityRouter.post('/auth/mfa/confirm', authenticate, authLimiter, async (reque
   response.status(200).json({ data: { enabled: true } });
 });
 
+
+const recoveryGenerateSchema = z.object({ password: z.string().min(1).max(128), code: z.string().regex(/^\\d{6}$/) });
+identityRouter.post('/auth/mfa/recovery-codes', authenticate, authLimiter, async (request, response) => {
+  const parsed = recoveryGenerateSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Provide your password and a valid six-digit authenticator code.' } });
+    return;
+  }
+  const user = await User.findById(request.auth!.userId).select('+passwordHash +totpEnabled +totpSecretEncrypted');
+  if (!user || !user.totpEnabled || !user.totpSecretEncrypted) {
+    response.status(409).json({ error: { code: 'MFA_NOT_ENABLED', message: 'Enable authenticator MFA before creating recovery codes.' } });
+    return;
+  }
+  if (!(await verifyPassword(user.passwordHash, parsed.data.password)) ||
+      !verifyTotp(decryptTotpSecret(user.totpSecretEncrypted), parsed.data.code)) {
+    response.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Password or authenticator code is incorrect.' } });
+    return;
+  }
+  const codes = Array.from({ length: 10 }, () => randomUUID().replaceAll('-', '').slice(0, 20).toUpperCase());
+  user.set('recoveryCodeHashes', codes.map((code) => hashRefreshToken(code)));
+  await user.save();
+  response.status(200).json({
+    data: {
+      recoveryCodes: codes,
+      remaining: codes.length,
+      warning: 'These codes are shown only once. Generating new codes invalidates all previously issued recovery codes.',
+    },
+  });
+});
+
 const mfaDisableSchema = z.object({ password: z.string().min(1).max(128), code: z.string().regex(/^\d{6}$/) });
 identityRouter.post('/auth/mfa/disable', authenticate, authLimiter, async (request, response) => {
   const parsed = mfaDisableSchema.safeParse(request.body);
@@ -286,6 +335,7 @@ identityRouter.post('/auth/mfa/disable', authenticate, authLimiter, async (reque
   user.set('totpEnabled', false);
   user.set('totpSecretEncrypted', undefined);
   user.set('totpPendingSecretEncrypted', undefined);
+  user.set('recoveryCodeHashes', []);
   await user.save();
   await RefreshSession.deleteMany({ userId: user._id });
   response.clearCookie('privaops_refresh', getRefreshCookieOptions());
