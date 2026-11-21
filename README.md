@@ -162,7 +162,7 @@ Before deploying:
 2. Set API environment variables securely: `NODE_ENV=production`, `MONGODB_URI`, `ACCESS_TOKEN_SECRET`, and the exact `WEB_ORIGIN`.
 3. Ensure the API platform's injected `PORT` is honored (the API defaults `API_PORT` to `PORT` when available).
 4. Set the frontend's `VITE_API_URL` to the API origin plus `/api/v1`, then build the web app.
-5. Configure HTTPS, secure cookie behavior, allowed origins, MongoDB network access, backups, monitoring, and rollback procedures.
+5. Configure HTTPS, secure cookie behavior, and the exact `WEB_ORIGIN`. Production refresh cookies require cross-site-capable Secure cookies and auth POST requests must carry the matching browser Origin header. Prefer same-site custom domains where possible; test browser third-party-cookie behavior. Configure MongoDB network access, backups, monitoring, and rollback procedures.
 6. Verify `/health/live`, `/health/ready`, authentication, tenant boundaries, and role restrictions using synthetic data.
 
 A successful frontend build does not prove that the API, database, cookies, or end-to-end workflows are production-ready.
