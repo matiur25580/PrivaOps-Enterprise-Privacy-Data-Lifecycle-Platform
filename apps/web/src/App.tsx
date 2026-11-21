@@ -1,4 +1,5 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 
 type User = { id: string; fullName: string; email: string };
 type Org = { id: string; name: string; slug?: string; role: string };
@@ -89,7 +90,15 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [booting, setBooting] = useState(true);
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [tab, setTab] = useState<'overview' | 'assets' | 'processing' | 'requests' | 'activity' | 'security'>('overview');
+  const pathname = usePathname();
+  const router = useRouter();
+  const routeTab: 'overview' | 'assets' | 'processing' | 'requests' | 'activity' | 'security' =
+    pathname === '/inventory' ? 'assets' :
+    pathname === '/processing' ? 'processing' :
+    pathname === '/requests' ? 'requests' :
+    pathname === '/activity' ? 'activity' :
+    pathname === '/security' ? 'security' : 'overview';
+  const [tab, setTab] = useState<'overview' | 'assets' | 'processing' | 'requests' | 'activity' | 'security'>(routeTab);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [requests, setRequests] = useState<RequestItem[]>([]);
@@ -122,6 +131,14 @@ export default function App() {
   const [asset, setAsset] = useState({ name: '', system: '', ownerTeam: '', classification: 'internal', description: '', dataCategories: '', dataSubjects: '' });
   const [activity, setActivity] = useState({ name: '', purpose: '', legalBasis: 'consent', dataCategories: '', dataSubjects: '', systems: '', assetIds: '', retentionPeriodDays: '365' });
   const [request, setRequest] = useState({ requestType: 'access', description: '' });
+
+  useEffect(() => { setTab(routeTab); }, [routeTab]);
+
+  function navigateTab(nextTab: 'overview' | 'assets' | 'processing' | 'requests' | 'activity' | 'security') {
+    setTab(nextTab);
+    const paths = { overview: '/', assets: '/inventory', processing: '/processing', requests: '/requests', activity: '/activity', security: '/security' };
+    router.push(paths[nextTab]);
+  }
 
   const canManage = session?.organization.role === 'owner' || session?.organization.role === 'admin';
   const orgBase = session ? '/organizations/' + encodeURIComponent(session.organization.id) : '';
@@ -380,12 +397,12 @@ export default function App() {
       <div className="workspace"><span className="workspace-icon">⌂</span><div><strong>{session.organization.name}</strong><small>{session.organization.role} workspace</small></div></div>
       <p className="nav-label">OPERATIONS</p>
       <nav aria-label="Workspace navigation">
-        <button className={tab === 'overview' ? 'selected' : ''} onClick={() => setTab('overview')}><span>◫</span> Overview</button>
-        <button className={tab === 'assets' ? 'selected' : ''} onClick={() => setTab('assets')}><span>▤</span> Data inventory</button>
-        <button className={tab === 'processing' ? 'selected' : ''} onClick={() => setTab('processing')}><span>◈</span> Processing register</button>
-        <button className={tab === 'requests' ? 'selected' : ''} onClick={() => setTab('requests')}><span>◎</span> Privacy requests</button>
-        {canManage && <button className={tab === 'activity' ? 'selected' : ''} onClick={() => setTab('activity')}><span>⌁</span> Audit activity</button>}
-        <button className={tab === 'security' ? 'selected' : ''} onClick={() => setTab('security')}><span>◇</span> Security settings</button>
+        <button className={tab === 'overview' ? 'selected' : ''} onClick={() => navigateTab('overview')}><span>◫</span> Overview</button>
+        <button className={tab === 'assets' ? 'selected' : ''} onClick={() => navigateTab('assets')}><span>▤</span> Data inventory</button>
+        <button className={tab === 'processing' ? 'selected' : ''} onClick={() => navigateTab('processing')}><span>◈</span> Processing register</button>
+        <button className={tab === 'requests' ? 'selected' : ''} onClick={() => navigateTab('requests')}><span>◎</span> Privacy requests</button>
+        {canManage && <button className={tab === 'activity' ? 'selected' : ''} onClick={() => navigateTab('activity')}><span>⌁</span> Audit activity</button>}
+        <button className={tab === 'security' ? 'selected' : ''} onClick={() => navigateTab('security')}><span>◇</span> Security settings</button>
       </nav>
       <div className="sidebar-bottom"><div className="security-note"><span>●</span><div><strong>Protected workspace</strong><small>Organization-scoped session</small></div></div><button className="signout" onClick={() => void signOut()}>↗ Sign out</button></div>
     </aside>
@@ -420,7 +437,7 @@ export default function App() {
             <div className="signal"><span className="signal-dot blue-dot" /><div><strong>{activities.filter((item) => item.status === 'under_review').length} activities under review</strong><small>Check purpose, legal basis, and retention documentation.</small></div></div>
           </section>
         </div>
-        <section className="panel"><div className="panel-heading"><div><p className="eyebrow">RECENT CHANGES</p><h3>Audit activity</h3></div>{canManage && <button className="text-action" onClick={() => setTab('activity')}>View audit log →</button>}</div>
+        <section className="panel"><div className="panel-heading"><div><p className="eyebrow">RECENT CHANGES</p><h3>Audit activity</h3></div>{canManage && <button className="text-action" onClick={() => navigateTab('activity')}>View audit log →</button>}</div>
           {canManage && audit.length ? <div className="activity-list">{audit.slice(0, 5).map((item) => <article key={item._id}><span className="activity-mark">⌁</span><div><strong>{label(item.action)}</strong><small>{item.resourceType} · {item.changedFields.join(', ') || 'record event'}</small></div><time>{dateLabel(item.createdAt)}</time></article>)}</div> : <p className="empty">{canManage ? 'No audit events recorded yet.' : 'Your organization activity is protected and available to administrators.'}</p>}
         </section>
       </>}

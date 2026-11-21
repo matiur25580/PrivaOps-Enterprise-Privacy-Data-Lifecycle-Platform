@@ -33,6 +33,21 @@ PrivaOps brings practical privacy operations into one organization-scoped worksp
 
 ## ✨ Product capabilities
 
+### App Router routes
+
+The web workspace exposes deep-linkable feature routes. All routes use the same authenticated workspace and preserve the API's organization-scoped authorization checks.
+
+| Route | Workspace view | Access |
+| --- | --- | --- |
+| `/` | Operational overview | Authenticated members |
+| `/inventory` | Data inventory | Authenticated members; write actions require owner/admin |
+| `/processing` | Processing register | Authenticated members; write actions require owner/admin |
+| `/requests` | Privacy request queue | Authenticated members, scoped by API permissions |
+| `/activity` | Audit activity | Owner/admin |
+| `/security` | Account security and MFA | Authenticated members |
+
+Navigation updates the browser URL through the Next.js App Router, so feature views can be bookmarked and opened directly. The audit route remains protected by the existing role-aware UI and, critically, server-side API authorization.
+
 ### Implemented capabilities
 
 | Module | What is implemented |
