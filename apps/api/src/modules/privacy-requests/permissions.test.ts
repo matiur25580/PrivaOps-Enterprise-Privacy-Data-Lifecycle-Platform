@@ -17,6 +17,12 @@ describe('privacy request permissions', () => {
     }
   });
 
+  it('keeps member access limited to own-request reads and never grants workflow management', () => {
+    expect(hasPermission('member', 'privacy_requests:read_own')).toBe(true);
+    expect(hasPermission('member', 'privacy_requests:read')).toBe(false);
+    expect(hasPermission('member', 'privacy_requests:manage')).toBe(false);
+  });
+
   it('does not expose privacy requests to viewers', () => {
     expect(hasPermission('viewer', 'privacy_requests:create')).toBe(false);
     expect(hasPermission('viewer', 'privacy_requests:read_own')).toBe(false);

@@ -6,6 +6,7 @@ import { hasPermission } from '../identity/types.js';
 import { Membership } from '../identity/models.js';
 import { PrivacyRequest, PrivacyRequestEvent, type PrivacyRequestStatus } from './models.js';
 import { canFulfillPrivacyRequest, canTransitionPrivacyRequestStatus } from './workflow.js';
+import { organizationRequestFilter, ownPrivacyRequestFilter } from './scope.js';
 
 export const privacyRequestRouter = Router();
 
@@ -50,9 +51,10 @@ privacyRequestRouter.get(
       return;
     }
     const { page, limit, status, requestType } = parsed.data;
-    const filter: Record<string, unknown> = { organizationId: request.auth!.organizationId };
-    if (status) filter.status = status;
-    if (requestType) filter.requestType = requestType;
+    const filter = organizationRequestFilter(request.auth!.organizationId, {
+      ...(status ? { status } : {}),
+      ...(requestType ? { requestType } : {}),
+    });
     const [items, total] = await Promise.all([
       PrivacyRequest.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       PrivacyRequest.countDocuments(filter),
@@ -98,12 +100,10 @@ privacyRequestRouter.get(
       return;
     }
     const { page, limit, status, requestType } = parsed.data;
-    const filter: Record<string, unknown> = {
-      organizationId: request.auth!.organizationId,
-      requestedBy: request.auth!.userId,
-    };
-    if (status) filter.status = status;
-    if (requestType) filter.requestType = requestType;
+    const filter = ownPrivacyRequestFilter(request.auth!.organizationId, request.auth!.userId, {
+      ...(status ? { status } : {}),
+      ...(requestType ? { requestType } : {}),
+    });
     const [items, total] = await Promise.all([
       PrivacyRequest.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
       PrivacyRequest.countDocuments(filter),
@@ -128,8 +128,9 @@ privacyRequestRouter.get(
       response.status(403).json({ error: { code: 'FORBIDDEN', message: 'You cannot read privacy requests.' } });
       return;
     }
-    const filter: Record<string, unknown> = { _id: id.data, organizationId: request.auth!.organizationId };
-    if (!canReadAll) filter.requestedBy = request.auth!.userId;
+    const filter = canReadAll
+      ? organizationRequestFilter(request.auth!.organizationId, { _id: id.data })
+      : ownPrivacyRequestFilter(request.auth!.organizationId, request.auth!.userId, { _id: id.data });
     const item = await PrivacyRequest.findOne(filter).lean();
     if (!item) {
       response.status(404).json({ error: { code: 'RESOURCE_NOT_FOUND', message: 'Privacy request not found.' } });
@@ -155,17 +156,15 @@ privacyRequestRouter.get(
       response.status(403).json({ error: { code: 'FORBIDDEN', message: 'You cannot read privacy request events.' } });
       return;
     }
-    const requestFilter: Record<string, unknown> = { _id: id.data, organizationId: request.auth!.organizationId };
-    if (!canReadAll) requestFilter.requestedBy = request.auth!.userId;
+    const requestFilter = canReadAll
+      ? organizationRequestFilter(request.auth!.organizationId, { _id: id.data })
+      : ownPrivacyRequestFilter(request.auth!.organizationId, request.auth!.userId, { _id: id.data });
     const exists = await PrivacyRequest.exists(requestFilter);
     if (!exists) {
       response.status(404).json({ error: { code: 'RESOURCE_NOT_FOUND', message: 'Privacy request not found.' } });
       return;
     }
-    const events = await PrivacyRequestEvent.find({
-      requestId: id.data,
-      organizationId: request.auth!.organizationId,
-    }).sort({ createdAt: 1 }).lean();
+    const events = await PrivacyRequestEvent.find(organizationRequestFilter(request.auth!.organizationId, { requestId: id.data })).sort({ createdAt: 1 }).lean();
     response.json({ data: { events } });
   },
 );
@@ -180,11 +179,9 @@ privacyRequestRouter.post(
       response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Invalid privacy request identifier.' } });
       return;
     }
-    const current = await PrivacyRequest.findOne({
-      _id: id.data,
-      organizationId: request.auth!.organizationId,
-      requestedBy: request.auth!.userId,
-    });
+    const current = await PrivacyRequest.findOne(
+      ownPrivacyRequestFilter(request.auth!.organizationId, request.auth!.userId, { _id: id.data }),
+    );
     if (!current) {
       response.status(404).json({ error: { code: 'RESOURCE_NOT_FOUND', message: 'Privacy request not found.' } });
       return;
@@ -194,7 +191,7 @@ privacyRequestRouter.post(
       return;
     }
     const updated = await PrivacyRequest.findOneAndUpdate(
-      { _id: id.data, organizationId: request.auth!.organizationId, requestedBy: request.auth!.userId, status: current.status },
+      ownPrivacyRequestFilter(request.auth!.organizationId, request.auth!.userId, { _id: id.data, status: current.status }),
       { $set: { status: 'withdrawn' } },
       { new: true, runValidators: true },
     );
@@ -224,10 +221,9 @@ privacyRequestRouter.patch(
       response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Provide a valid request identifier and at least one valid update.', details: parsed.success ? undefined : parsed.error.flatten() } });
       return;
     }
-    const current = await PrivacyRequest.findOne({
-      _id: id.data,
-      organizationId: request.auth!.organizationId,
-    });
+    const current = await PrivacyRequest.findOne(
+      organizationRequestFilter(request.auth!.organizationId, { _id: id.data }),
+    );
     if (!current) {
       response.status(404).json({ error: { code: 'RESOURCE_NOT_FOUND', message: 'Privacy request not found.' } });
       return;
@@ -262,7 +258,7 @@ privacyRequestRouter.patch(
     }
     const changedFields = Object.keys(parsed.data);
     const updated = await PrivacyRequest.findOneAndUpdate(
-      { _id: id.data, organizationId: request.auth!.organizationId, status: current.status },
+      organizationRequestFilter(request.auth!.organizationId, { _id: id.data, status: current.status }),
       { $set: parsed.data },
       { new: true, runValidators: true },
     );
