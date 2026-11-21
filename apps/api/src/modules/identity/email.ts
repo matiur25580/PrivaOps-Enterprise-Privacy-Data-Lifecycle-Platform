@@ -1,5 +1,4 @@
 import { env } from '../../env.js';
-import { createEmailActionToken, hashEmailActionToken } from './email-token.js';
 export { createEmailActionToken, hashEmailActionToken } from './email-token.js';
 
 export type EmailActionPurpose = 'email_verification' | 'password_reset';
