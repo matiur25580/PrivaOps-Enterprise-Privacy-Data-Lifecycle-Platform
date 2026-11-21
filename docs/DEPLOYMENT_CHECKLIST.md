@@ -100,7 +100,7 @@ VITE_API_URL=https://<api-host>/api/v1
 
 Redeploy/rebuild the web project after changing \`VITE_API_URL\`; Vite embeds it into the generated browser bundle.
 
-## 4. Match origins and cookie behavior
+## 4. Configure transactional email\n\n1. Create a Resend account and verify a sending domain.\n2. Generate an API key with permission to send mail and store it as `RESEND_API_KEY` in the API service only.\n3. Set `EMAIL_FROM` to an address on the verified sending domain.\n4. Send a test verification email and a test password-reset email. Confirm both links open the exact `WEB_ORIGIN` and expire after 30 minutes.\n5. Do not expose the provider key through `VITE_*` variables or commit it to source control.\n\n## 5. Match origins and cookie behavior
 
 1. Set API \`WEB_ORIGIN\` to the exact Vercel/custom web origin, including scheme and host, with no path or trailing slash. Example: \`https://app.example.com\`.
 2. Confirm the web app sends requests to the API's \`/api/v1\` base path.
@@ -111,7 +111,7 @@ Redeploy/rebuild the web project after changing \`VITE_API_URL\`; Vite embeds it
 
 If your hosting provider uses a different canonical domain after custom-domain setup, update \`WEB_ORIGIN\` and rebuild/redeploy as appropriate.
 
-## 5. Smoke-test the complete workflow
+## 6. Smoke-test the complete workflow
 
 Use a new synthetic workspace and fictional user. Do not use real customer or employee information.
 
@@ -133,7 +133,7 @@ Use a new synthetic workspace and fictional user. Do not use real customer or em
 
 If refresh fails but login appears to work, inspect cookie presence, HTTPS, SameSite/third-party-cookie policy, exact Origin, CORS credentials, and domain topology.
 
-## 6. Operational hardening before real data
+## 7. Operational hardening before real data
 
 - [ ] Review dependency audit output and remediate high/critical findings with compatibility testing.
 - [ ] Enable provider log retention, alerts, and uptime monitoring; redact secrets and personal data from logs.
