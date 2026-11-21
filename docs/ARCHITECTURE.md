@@ -4,14 +4,14 @@
 
 PrivaOps is a TypeScript monorepo with a browser application, HTTP API, and shared package boundary.
 
-- `apps/web`: React 19 + Vite workspace.
+- `apps/web`: Next.js 16 App Router + React 19 workspace.
 - `apps/api`: Express 5 API, environment validation, MongoDB connection.
 - `packages/shared`: framework-independent shared contracts.
 - `docs`: architecture, security posture, and operator guidance.
 
 ## Runtime flow
 
-1. The browser loads the React application.
+1. Next.js serves the App Router shell and hydrates the existing interactive React workspace.
 2. The frontend calls the versioned API at `/api/v1`.
 3. Express applies Helmet, credentialed CORS for the configured origin, bounded JSON parsing, cookie parsing, and structured request logging.
 4. Authentication verifies JWT claims, reloads the user and active membership, and derives organization scope server-side.
