@@ -30,7 +30,7 @@ export function decryptTotpSecret(value: string): string {
 }
 
 export function verifyTotp(secret: string, code: string, now = Date.now()): boolean {
-  if (!/^\\d{6}$/.test(code)) return false;
+  if (!/^\d{6}$/.test(code)) return false;
   const counter = Math.floor(now / 30_000);
   for (let drift = -1; drift <= 1; drift += 1) {
     const expected = totpAt(secret, counter + drift);
