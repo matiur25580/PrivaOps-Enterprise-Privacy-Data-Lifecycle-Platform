@@ -5,7 +5,7 @@ import { rateLimit } from 'express-rate-limit';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { env } from '../../env.js';
-import { Membership, Organization, RefreshSession, User } from './models.js';
+import { MfaChallenge, Membership, Organization, RefreshSession, User } from './models.js';
 import { authenticate, requireOrganizationScope, requirePermission } from './middleware.js';
 import { createAccessToken, createMfaChallengeToken, createRefreshToken, getRefreshCookieOptions, hashRefreshToken, verifyMfaChallengeToken } from './tokens.js';
 import { verifyPassword } from './password.js';
@@ -150,7 +150,9 @@ identityRouter.post('/auth/login', authLimiter, requireTrustedOrigin, async (req
 
   const organization = selected.organizationId;
   if ((user as typeof user & { totpEnabled?: boolean }).totpEnabled) {
-    const challengeToken = await createMfaChallengeToken({ userId: String(user._id), organizationId: organization._id.toString() });
+    const tokenId = randomUUID();
+    await MfaChallenge.create({ tokenId, userId: user._id, organizationId: organization._id, expiresAt: new Date(Date.now() + 5 * 60 * 1000) });
+    const challengeToken = await createMfaChallengeToken({ userId: String(user._id), organizationId: organization._id.toString(), tokenId });
     response.status(202).json({ data: { mfaRequired: true, challengeToken, expiresIn: 300 } });
     return;
   }
@@ -178,7 +180,7 @@ identityRouter.post('/auth/mfa/verify-login', authLimiter, requireTrustedOrigin,
     response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Provide a valid six-digit authenticator code.' } });
     return;
   }
-  let challenge: { userId: string; organizationId: string };
+  let challenge: { userId: string; organizationId: string; tokenId: string };
   try { challenge = await verifyMfaChallengeToken(parsed.data.challengeToken); }
   catch {
     response.status(401).json({ error: { code: 'INVALID_MFA_CHALLENGE', message: 'The MFA challenge is invalid or expired.' } });
@@ -196,6 +198,11 @@ identityRouter.post('/auth/mfa/verify-login', authLimiter, requireTrustedOrigin,
   const valid = verifyTotp(decryptTotpSecret(user.totpSecretEncrypted), parsed.data.code);
   if (!valid) {
     response.status(401).json({ error: { code: 'INVALID_MFA_CODE', message: 'The authenticator code is incorrect or expired.' } });
+    return;
+  }
+  const consumedChallenge = await MfaChallenge.findOneAndDelete({ tokenId: challenge.tokenId, userId: user._id, organizationId: organization._id, expiresAt: { $gt: new Date() } });
+  if (!consumedChallenge) {
+    response.status(401).json({ error: { code: 'MFA_CHALLENGE_USED', message: 'The MFA challenge has expired or was already used.' } });
     return;
   }
   const tokens = await issueSession(String(user._id), String(organization._id), response);
