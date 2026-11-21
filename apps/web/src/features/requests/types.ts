@@ -18,3 +18,12 @@ export type RequestEvent = {
   createdAt: string;
   actorId?: string;
 };
+
+export type RequestUpdate = {
+  status: string;
+  identityVerificationStatus: string;
+  resolutionSummary: string;
+  rejectionReason: string;
+  assignedTo: string;
+  dueAt: string;
+};
