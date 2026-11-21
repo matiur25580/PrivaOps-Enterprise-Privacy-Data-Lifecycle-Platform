@@ -1,8 +1,10 @@
 import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { env } from '../../env.js';
-
 const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
-const key = createHash('sha256').update(env.ACCESS_TOKEN_SECRET).update('privaops:totp:v1').digest();
+function encryptionKey() {
+  const secret = process.env.ACCESS_TOKEN_SECRET;
+  if (!secret || secret.length < 32) throw new Error('ACCESS_TOKEN_SECRET must contain at least 32 characters');
+  return createHash('sha256').update(secret).update('privaops:totp:v1').digest();
+}
 
 export function generateTotpSecret(): string {
   return encodeBase32(randomBytes(20));
@@ -16,7 +18,7 @@ export function buildOtpAuthUri(secret: string, account: string): string {
 
 export function encryptTotpSecret(secret: string): string {
   const iv = randomBytes(12);
-  const cipher = createCipheriv('aes-256-gcm', key, iv);
+  const cipher = createCipheriv('aes-256-gcm', encryptionKey(), iv);
   const ciphertext = Buffer.concat([cipher.update(secret, 'utf8'), cipher.final()]);
   return [iv, cipher.getAuthTag(), ciphertext].map((part) => part.toString('base64url')).join('.');
 }
@@ -24,7 +26,7 @@ export function encryptTotpSecret(secret: string): string {
 export function decryptTotpSecret(value: string): string {
   const [ivText, tagText, dataText] = value.split('.');
   if (!ivText || !tagText || !dataText) throw new Error('Invalid encrypted TOTP secret');
-  const decipher = createDecipheriv('aes-256-gcm', key, Buffer.from(ivText, 'base64url'));
+  const decipher = createDecipheriv('aes-256-gcm', encryptionKey(), Buffer.from(ivText, 'base64url'));
   decipher.setAuthTag(Buffer.from(tagText, 'base64url'));
   return Buffer.concat([decipher.update(Buffer.from(dataText, 'base64url')), decipher.final()]).toString('utf8');
 }
