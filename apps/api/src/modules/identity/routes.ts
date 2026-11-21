@@ -171,7 +171,7 @@ identityRouter.post('/auth/login', authLimiter, requireTrustedOrigin, async (req
 });
 
 
-const mfaLoginSchema = z.object({ challengeToken: z.string().min(20).max(4096), code: z.string().regex(/^\\d{6}$/) });
+const mfaLoginSchema = z.object({ challengeToken: z.string().min(20).max(4096), code: z.string().regex(/^\d{6}$/) });
 identityRouter.post('/auth/mfa/verify-login', authLimiter, requireTrustedOrigin, async (request, response) => {
   const parsed = mfaLoginSchema.safeParse(request.body);
   if (!parsed.success) {
@@ -208,7 +208,7 @@ identityRouter.post('/auth/mfa/verify-login', authLimiter, requireTrustedOrigin,
   });
 });
 
-const mfaCodeSchema = z.object({ code: z.string().regex(/^\\d{6}$/) });
+const mfaCodeSchema = z.object({ code: z.string().regex(/^\d{6}$/) });
 identityRouter.get('/auth/mfa/status', authenticate, async (request, response) => {
   const user = await User.findById(request.auth!.userId).select('+totpEnabled').lean();
   response.status(200).json({ data: { enabled: Boolean(user?.totpEnabled) } });
@@ -259,7 +259,7 @@ identityRouter.post('/auth/mfa/confirm', authenticate, authLimiter, async (reque
   response.status(200).json({ data: { enabled: true } });
 });
 
-const mfaDisableSchema = z.object({ password: z.string().min(1).max(128), code: z.string().regex(/^\\d{6}$/) });
+const mfaDisableSchema = z.object({ password: z.string().min(1).max(128), code: z.string().regex(/^\d{6}$/) });
 identityRouter.post('/auth/mfa/disable', authenticate, authLimiter, async (request, response) => {
   const parsed = mfaDisableSchema.safeParse(request.body);
   if (!parsed.success) {
