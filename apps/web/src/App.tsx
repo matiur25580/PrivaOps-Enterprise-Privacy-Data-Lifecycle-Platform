@@ -166,6 +166,8 @@ export default function App() {
 
   useEffect(() => {
     let live = true;
+    const actionParams = new URLSearchParams(window.location.search);
+    if (actionParams.has('verifyEmail') || actionParams.has('resetPassword')) { setBooting(false); return () => { live = false; }; }
     void refreshAccessToken().then(async (token) => {
       if (!token) return;
       const me = await call<{ user: User; organization: Org }>('/auth/me', token);
@@ -218,8 +220,8 @@ export default function App() {
       const payload = mode === 'login'
         ? { email: auth.email, password: auth.password }
         : auth;
-      const result = await call<{ mfaRequired?: boolean; challengeToken?: string; accessToken?: string; user?: User; organization?: Org }>(path, undefined, { method: 'POST', body: JSON.stringify(payload) });
-      if (result.emailVerificationRequired) { setEmailFlow('verifyPending'); setNotice('Your account was created. Verify your email before signing in.'); return; }
+      const result = await call<{ mfaRequired?: boolean; challengeToken?: string; emailVerificationRequired?: boolean; message?: string; accessToken?: string; user?: User; organization?: Org }>(path, undefined, { method: 'POST', body: JSON.stringify(payload) });
+      if (result.emailVerificationRequired) { setEmailFlow('verifyPending'); setNotice(result.message || 'Your account was created. Verify your email before signing in.'); return; }
       if (result.mfaRequired && result.challengeToken) { setMfaChallenge(result.challengeToken); setMfaCode(''); setMfaRecoveryMode(false); setNotice('Password verified. Complete the second authentication step.'); return; }
       if (!result.accessToken || !result.organization || !result.user) throw new Error('The authentication response was incomplete.');
       activeAccessToken = result.accessToken;
