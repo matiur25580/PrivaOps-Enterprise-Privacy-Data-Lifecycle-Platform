@@ -4,7 +4,7 @@ import { env } from '../../env.js';
 
 const secret = new TextEncoder().encode(env.ACCESS_TOKEN_SECRET);
 
-export async function createAccessToken(input: { userId: string; organizationId: string; tokenId: string }) {
+export async function createAccessToken(input: { userId: string; organizationId: string }) {
   return new SignJWT({ organizationId: input.organizationId })
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setSubject(input.userId)
@@ -32,7 +32,7 @@ export function getRefreshCookieOptions() {
     maxAge: env.REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000,
   };
 }
-export async function createMfaChallengeToken(input: { userId: string; organizationId: string }) {
+export async function createMfaChallengeToken(input: { userId: string; organizationId: string; tokenId: string }) {
   return new SignJWT({ organizationId: input.organizationId, purpose: 'mfa-challenge', jti: input.tokenId })
     .setProtectedHeader({ alg: 'HS256', typ: 'JWT' })
     .setSubject(input.userId)
