@@ -353,7 +353,7 @@ export default function App() {
       <div className="auth-proof"><span>01 / DISCOVER</span><span>02 / GOVERN</span><span>03 / EVIDENCE</span></div>
       <small>Tenant-scoped access · Role-based authorization · Auditable workflows</small>
     </section>
-    <section className="auth-panel"><form className="auth-card" onSubmit={authenticate}>
+    <section className="auth-panel"><div className="auth-card">
       <p className="eyebrow">{mfaChallenge ? 'SECOND FACTOR REQUIRED' : mode === 'login' ? 'WELCOME BACK' : 'GET STARTED'}</p><h2>{mfaChallenge ? 'Verify your identity' : mode === 'login' ? 'Sign in to PrivaOps' : 'Create your workspace'}</h2>
       <p className="auth-description">{mfaChallenge ? 'Enter your authenticator code or an unused recovery code.' : 'Use your organization account to continue to the privacy operations console.'}</p>
       {mfaChallenge ? <form className="auth-card" onSubmit={verifyMfaLogin}>
@@ -363,6 +363,7 @@ export default function App() {
         <p className="switch-auth"><button type="button" className="link-button" onClick={() => { setMfaRecoveryMode(!mfaRecoveryMode); setMfaCode(''); setError(''); }}>{mfaRecoveryMode ? 'Use authenticator app' : 'Use a recovery code'}</button></p>
         <p className="switch-auth"><button type="button" className="link-button" onClick={() => { setMfaChallenge(''); setMfaCode(''); setError(''); }}>Cancel and return to sign in</button></p>
       </form> : <>
+      <form onSubmit={authenticate}>
       {mode === 'register' && <label>Full name<input autoComplete="name" required minLength={2} value={auth.fullName} onChange={(e) => setAuth({ ...auth, fullName: e.target.value })} /></label>}
       <label>Email address<input type="email" autoComplete="email" required value={auth.email} onChange={(e) => setAuth({ ...auth, email: e.target.value })} /></label>
       <label>Password<input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required minLength={mode === 'register' ? 12 : 1} value={auth.password} onChange={(e) => setAuth({ ...auth, password: e.target.value })} />{mode === 'register' && <small>Use at least 12 characters.</small>}</label>
