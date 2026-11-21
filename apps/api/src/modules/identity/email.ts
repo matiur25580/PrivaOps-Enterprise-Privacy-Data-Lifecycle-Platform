@@ -1,16 +1,8 @@
-import { createHash, randomBytes } from 'node:crypto';
 import { env } from '../../env.js';
+import { createEmailActionToken, hashEmailActionToken } from './email-token.js';
+export { createEmailActionToken, hashEmailActionToken } from './email-token.js';
 
 export type EmailActionPurpose = 'email_verification' | 'password_reset';
-
-export function createEmailActionToken() {
-  const token = randomBytes(32).toString('base64url');
-  return { token, tokenHash: createHash('sha256').update(token).digest('hex') };
-}
-
-export function hashEmailActionToken(token: string) {
-  return createHash('sha256').update(token).digest('hex');
-}
 
 function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (character) => ({
