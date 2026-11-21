@@ -5,10 +5,12 @@ import { rateLimit } from 'express-rate-limit';
 import { Types } from 'mongoose';
 import { z } from 'zod';
 import { env } from '../../env.js';
-import { Membership, Organization, RefreshSession, User } from './models.js';
+import { MfaChallenge, Membership, Organization, RefreshSession, User } from './models.js';
 import { authenticate, requireOrganizationScope, requirePermission } from './middleware.js';
-import { createAccessToken, createRefreshToken, getRefreshCookieOptions, hashRefreshToken } from './tokens.js';
+import { createAccessToken, createMfaChallengeToken, createRefreshToken, getRefreshCookieOptions, hashRefreshToken, verifyMfaChallengeToken } from './tokens.js';
 import { verifyPassword } from './password.js';
+import { buildOtpAuthUri, decryptTotpSecret, encryptTotpSecret, generateTotpSecret, verifyTotp } from './totp.js';
+import { generateRecoveryCodes, hashRecoveryCode } from './recovery-codes.js';
 import type { OrganizationRole } from './types.js';
 
 export const identityRouter = Router();
@@ -123,7 +125,7 @@ identityRouter.post('/auth/login', authLimiter, requireTrustedOrigin, async (req
   }
 
   const user = await User.findOne({ email: parsed.data.email.toLowerCase(), status: 'active' })
-    .select('+passwordHash fullName email');
+    .select('+passwordHash +totpEnabled fullName email');
   const passwordMatches = await verifyPassword(
     user?.passwordHash as string | undefined,
     parsed.data.password,
@@ -148,6 +150,13 @@ identityRouter.post('/auth/login', authLimiter, requireTrustedOrigin, async (req
   }
 
   const organization = selected.organizationId;
+  if ((user as typeof user & { totpEnabled?: boolean }).totpEnabled) {
+    const tokenId = randomUUID();
+    await MfaChallenge.create({ tokenId, userId: user._id, organizationId: organization._id, expiresAt: new Date(Date.now() + 5 * 60 * 1000) });
+    const challengeToken = await createMfaChallengeToken({ userId: String(user._id), organizationId: organization._id.toString(), tokenId });
+    response.status(202).json({ data: { mfaRequired: true, challengeToken, expiresIn: 300 } });
+    return;
+  }
   const tokens = await issueSession(String(user._id), organization._id.toString(), response);
   response.status(200).json({
     data: {
@@ -162,6 +171,176 @@ identityRouter.post('/auth/login', authLimiter, requireTrustedOrigin, async (req
       ...tokens,
     },
   });
+});
+
+
+const mfaLoginSchema = z.object({
+  challengeToken: z.string().min(20).max(4096),
+  code: z.string().regex(/^\d{6}$/).optional(),
+  recoveryCode: z.string().regex(/^[a-f0-9]{32}$/i).optional(),
+}).refine((value) => Boolean(value.code) !== Boolean(value.recoveryCode), 'Provide exactly one authenticator or recovery code.');
+identityRouter.post('/auth/mfa/verify-login', authLimiter, requireTrustedOrigin, async (request, response) => {
+  const parsed = mfaLoginSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Provide a valid six-digit authenticator code.' } });
+    return;
+  }
+  let challenge: { userId: string; organizationId: string; tokenId: string };
+  try { challenge = await verifyMfaChallengeToken(parsed.data.challengeToken); }
+  catch {
+    response.status(401).json({ error: { code: 'INVALID_MFA_CHALLENGE', message: 'The MFA challenge is invalid or expired.' } });
+    return;
+  }
+  const [user, membership, organization] = await Promise.all([
+    User.findOne({ _id: challenge.userId, status: 'active' }).select('+totpEnabled +totpSecretEncrypted +recoveryCodeHashes fullName email'),
+    Membership.findOne({ userId: challenge.userId, organizationId: challenge.organizationId, status: 'active' }),
+    Organization.findOne({ _id: challenge.organizationId, status: 'active' }),
+  ]);
+  if (!user || !membership || !organization || !user.totpEnabled || !user.totpSecretEncrypted) {
+    response.status(401).json({ error: { code: 'MFA_ACCESS_REVOKED', message: 'The account or MFA configuration is no longer active.' } });
+    return;
+  }
+  const recoveryHash = parsed.data.recoveryCode
+    ? hashRecoveryCode(parsed.data.recoveryCode)
+    : undefined;
+  const valid = parsed.data.code
+    ? verifyTotp(decryptTotpSecret(user.totpSecretEncrypted), parsed.data.code)
+    : Boolean(recoveryHash && user.recoveryCodeHashes.includes(recoveryHash));
+  if (!valid) {
+    response.status(401).json({ error: { code: 'INVALID_MFA_CODE', message: 'The authenticator code is incorrect or expired.' } });
+    return;
+  }
+  const consumedChallenge = await MfaChallenge.findOneAndDelete({ tokenId: challenge.tokenId, userId: user._id, organizationId: organization._id, expiresAt: { $gt: new Date() } });
+  if (!consumedChallenge) {
+    response.status(401).json({ error: { code: 'MFA_CHALLENGE_USED', message: 'The MFA challenge has expired or was already used.' } });
+    return;
+  }
+  if (recoveryHash) {
+    const consumedRecovery = await User.findOneAndUpdate(
+      { _id: user._id, recoveryCodeHashes: recoveryHash },
+      { $pull: { recoveryCodeHashes: recoveryHash } },
+    );
+    if (!consumedRecovery) {
+      response.status(401).json({ error: { code: 'RECOVERY_CODE_USED', message: 'This recovery code has already been used.' } });
+      return;
+    }
+  }
+  const tokens = await issueSession(String(user._id), String(organization._id), response);
+  response.status(200).json({
+    data: {
+      user: safeUser(user as SafeUser),
+      organization: { id: String(organization._id), name: organization.name, slug: organization.slug, role: membership.role },
+      ...tokens,
+    },
+  });
+});
+
+const mfaCodeSchema = z.object({ code: z.string().regex(/^\d{6}$/) });
+identityRouter.get('/auth/mfa/status', authenticate, async (request, response) => {
+  const user = await User.findById(request.auth!.userId).select('+totpEnabled +recoveryCodeHashes').lean();
+  response.status(200).json({ data: { enabled: Boolean(user?.totpEnabled), recoveryCodesRemaining: user?.recoveryCodeHashes.length ?? 0 } });
+});
+
+identityRouter.post('/auth/mfa/setup', authenticate, authLimiter, async (request, response) => {
+  const user = await User.findById(request.auth!.userId).select('+totpEnabled');
+  if (!user) {
+    response.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'The account was not found.' } });
+    return;
+  }
+  if (user.totpEnabled) {
+    response.status(409).json({ error: { code: 'MFA_ALREADY_ENABLED', message: 'Disable MFA before starting a new enrollment.' } });
+    return;
+  }
+  const secret = generateTotpSecret();
+  user.set('totpPendingSecretEncrypted', encryptTotpSecret(secret));
+  await user.save();
+  response.status(200).json({
+    data: {
+      secret,
+      otpauthUri: buildOtpAuthUri(secret, user.email),
+      instructions: 'Add this account to an authenticator app, then confirm with the current six-digit code. The secret is shown only during setup.',
+    },
+  });
+});
+
+identityRouter.post('/auth/mfa/confirm', authenticate, authLimiter, async (request, response) => {
+  const parsed = mfaCodeSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Provide a valid six-digit authenticator code.' } });
+    return;
+  }
+  const user = await User.findById(request.auth!.userId).select('+totpEnabled +totpPendingSecretEncrypted +totpSecretEncrypted');
+  if (!user || user.totpEnabled || !user.totpPendingSecretEncrypted) {
+    response.status(409).json({ error: { code: 'MFA_SETUP_REQUIRED', message: 'Start MFA setup before confirming it.' } });
+    return;
+  }
+  const secret = decryptTotpSecret(user.totpPendingSecretEncrypted);
+  if (!verifyTotp(secret, parsed.data.code)) {
+    response.status(401).json({ error: { code: 'INVALID_MFA_CODE', message: 'The authenticator code is incorrect or expired.' } });
+    return;
+  }
+  user.set('totpSecretEncrypted', user.totpPendingSecretEncrypted);
+  user.set('totpPendingSecretEncrypted', undefined);
+  user.set('totpEnabled', true);
+  await user.save();
+  response.status(200).json({ data: { enabled: true } });
+});
+
+
+const recoveryGenerateSchema = z.object({ password: z.string().min(1).max(128), code: z.string().regex(/^\d{6}$/) });
+identityRouter.post('/auth/mfa/recovery-codes', authenticate, authLimiter, async (request, response) => {
+  const parsed = recoveryGenerateSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Provide your password and a valid six-digit authenticator code.' } });
+    return;
+  }
+  const user = await User.findById(request.auth!.userId).select('+passwordHash +totpEnabled +totpSecretEncrypted');
+  if (!user || !user.totpEnabled || !user.totpSecretEncrypted) {
+    response.status(409).json({ error: { code: 'MFA_NOT_ENABLED', message: 'Enable authenticator MFA before creating recovery codes.' } });
+    return;
+  }
+  if (!(await verifyPassword(user.passwordHash, parsed.data.password)) ||
+      !verifyTotp(decryptTotpSecret(user.totpSecretEncrypted), parsed.data.code)) {
+    response.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Password or authenticator code is incorrect.' } });
+    return;
+  }
+  const codes = generateRecoveryCodes();
+  user.set('recoveryCodeHashes', codes.map((code) => hashRecoveryCode(code)));
+  await user.save();
+  response.status(200).json({
+    data: {
+      recoveryCodes: codes,
+      remaining: codes.length,
+      warning: 'These codes are shown only once. Generating new codes invalidates all previously issued recovery codes.',
+    },
+  });
+});
+
+const mfaDisableSchema = z.object({ password: z.string().min(1).max(128), code: z.string().regex(/^\d{6}$/) });
+identityRouter.post('/auth/mfa/disable', authenticate, authLimiter, async (request, response) => {
+  const parsed = mfaDisableSchema.safeParse(request.body);
+  if (!parsed.success) {
+    response.status(400).json({ error: { code: 'VALIDATION_ERROR', message: 'Provide your password and a valid six-digit authenticator code.' } });
+    return;
+  }
+  const user = await User.findById(request.auth!.userId).select('+passwordHash +totpEnabled +totpSecretEncrypted');
+  if (!user || !user.totpEnabled || !user.totpSecretEncrypted) {
+    response.status(409).json({ error: { code: 'MFA_NOT_ENABLED', message: 'MFA is not enabled for this account.' } });
+    return;
+  }
+  if (!(await verifyPassword(user.passwordHash, parsed.data.password)) ||
+      !verifyTotp(decryptTotpSecret(user.totpSecretEncrypted), parsed.data.code)) {
+    response.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Password or authenticator code is incorrect.' } });
+    return;
+  }
+  user.set('totpEnabled', false);
+  user.set('totpSecretEncrypted', undefined);
+  user.set('totpPendingSecretEncrypted', undefined);
+  user.set('recoveryCodeHashes', []);
+  await user.save();
+  await RefreshSession.deleteMany({ userId: user._id });
+  response.clearCookie('privaops_refresh', getRefreshCookieOptions());
+  response.status(200).json({ data: { enabled: false, sessionsRevoked: true } });
 });
 
 identityRouter.post('/auth/refresh', requireTrustedOrigin, async (request, response) => {
