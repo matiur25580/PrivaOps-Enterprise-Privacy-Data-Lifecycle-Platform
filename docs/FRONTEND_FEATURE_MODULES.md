@@ -34,7 +34,8 @@ apps/web/src/
 - **Inventory feature:** owns its filter controls, asset form, archive confirmation, table rendering, and API operations. The workspace supplies the organization session and refresh/error/notice callbacks.
 - **Processing feature:** owns its activity form, linked-active-asset selection, table rendering, and create API operation. The workspace supplies the session and shared asset collection.
 - **Request domain:** is the single frontend source for terminal states and permitted next-state options. The backend remains authoritative and validates every transition.
-- **Request detail component:** owns the request detail and timeline presentation; the parent passes data, state setters, and save/close callbacks.
+- **Privacy request feature:** owns queue filtering presentation, request submission, event-history loading, workflow update orchestration, and detail modal state. The workspace supplies the authenticated session, loaded records, members, and shared refresh/notice/error callbacks.
+- **Request API:** centralizes organization-scoped request create, event-history, and workflow-update calls. The backend remains authoritative for role checks, tenant filters, assignee membership, and legal workflow invariants.
 - **Shared utilities:** keep CSV serialization and date/label formatting out of the workspace component.
 
 ## Security and tenancy invariants
@@ -48,4 +49,4 @@ apps/web/src/
 
 ## Next decomposition step
 
-The workspace component still coordinates session bootstrapping, cross-feature data loading, and the remaining privacy-request and security flows. Inventory and processing presentation and write operations now live in their own feature modules. The next extraction should isolate session/workspace data loading, then the privacy-request queue. Keep each change behavior-preserving and covered by tests before adopting server-side data fetching.
+The workspace component still coordinates session bootstrapping, cross-feature data loading, and the remaining privacy-request and security flows. Inventory and processing presentation and write operations now live in their own feature modules. The next extraction should isolate session/workspace data loading and authentication state. Keep each change behavior-preserving and covered by tests before adopting server-side data fetching.
