@@ -151,7 +151,7 @@ The versioned API is mounted under `/api/v1`.
 - Hashing or append-oriented writes alone do not guarantee immutable audit evidence. Production deployments need protected storage, least-privilege access, independent monitoring, backups, and an external integrity strategy.
 - Production hardening still requires a threat model, CSRF review for cookie-authenticated flows, email verification, MFA, account recovery, dependency review, secrets management, rate-limit strategy, and integration/end-to-end testing.
 
-See [docs/SECURITY.md](docs/SECURITY.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+See [docs/SECURITY.md](docs/SECURITY.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and the [5-minute portfolio demo guide](docs/DEMO_GUIDE.md).
 
 ## Manual deployment handoff
 
