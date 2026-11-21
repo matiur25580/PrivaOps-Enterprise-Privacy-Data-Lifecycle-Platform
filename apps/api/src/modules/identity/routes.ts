@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import argon2 from 'argon2';
 import { Router, type RequestHandler, type Response } from 'express';
 import { rateLimit } from 'express-rate-limit';
@@ -303,7 +303,7 @@ identityRouter.post('/auth/mfa/recovery-codes', authenticate, authLimiter, async
     response.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Password or authenticator code is incorrect.' } });
     return;
   }
-  const codes = Array.from({ length: 10 }, () => randomUUID().replaceAll('-', '').slice(0, 20).toUpperCase());
+  const codes = Array.from({ length: 10 }, () => randomBytes(16).toString('hex').toUpperCase());
   user.set('recoveryCodeHashes', codes.map((code) => hashRefreshToken(code)));
   await user.save();
   response.status(200).json({
