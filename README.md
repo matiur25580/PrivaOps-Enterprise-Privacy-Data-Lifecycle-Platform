@@ -166,7 +166,7 @@ A view of the tenant-scoped registers available for CSV export and downstream re
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│                     React 19 + Vite                         │
+│                     Next.js 16 App Router + React 19                         │
 │   Overview · Inventory · Processing · Requests · Activity   │
 └──────────────────────────────┬──────────────────────────────┘
                                │ HTTPS / JSON
@@ -203,7 +203,7 @@ A view of the tenant-scoped registers available for CSV export and downstream re
 │   │       ├── env.ts
 │   │       └── server.ts
 │   └── web/
-│       └── src/                       # React workspace and design system
+│       ├── app/                       # Next.js App Router entry points\n│       └── src/                       # Existing React workspace and design system
 ├── packages/
 │   └── shared/                        # Shared package boundary
 ├── docs/
@@ -263,7 +263,7 @@ See [Security notes & threat model](docs/SECURITY.md) for the complete checklist
 
 | Layer | Technologies |
 | --- | --- |
-| Frontend | React 19, Vite 6, TypeScript |
+| Frontend | Next.js 16 App Router, React 19, TypeScript |
 | Styling | CSS design system, responsive layouts, system font stack |
 | Backend | Node.js 22+, Express 5, TypeScript |
 | Validation | Zod |
@@ -318,10 +318,10 @@ npm install
 
 ### 5. Configure the frontend API URL
 
-Create or update `apps/web/.env`:
+Create or update `apps/web/.env.local`:
 
 ```dotenv
-VITE_API_URL=http://localhost:4000/api/v1
+NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
 ```
 
 ### 6. Start both applications
@@ -334,7 +334,7 @@ Default local URLs:
 
 | Service | URL |
 | --- | --- |
-| Web workspace | http://localhost:5173 |
+| Web workspace | http://localhost:3000 |
 | API | http://localhost:4000 |
 | API base path | http://localhost:4000/api/v1 |
 | Liveness | http://localhost:4000/health/live |
@@ -356,13 +356,13 @@ Default local URLs:
 | `ACCESS_TOKEN_TTL_SECONDS` | No | Access-token lifetime; default 900 seconds |
 | `REFRESH_TOKEN_TTL_DAYS` | No | Refresh-session lifetime; default 7 days |
 
-### Web — `apps/web/.env`
+### Web — `apps/web/.env.local`
 
 | Variable | Required | Description |
 | --- | --- | --- |
 | `VITE_API_URL` | Recommended | Public API base URL including `/api/v1` |
 
-**Important:** Vite exposes `VITE_*` values to the browser bundle. Never place database URIs, token-signing secrets, private API keys, or other secrets in frontend environment variables.
+**Important:** Next.js embeds `NEXT_PUBLIC_*` values to the browser bundle. Never place database URIs, token-signing secrets, private API keys, or other secrets in frontend environment variables.
 
 ---
 
@@ -467,7 +467,7 @@ Recommended topology:
 | Runtime | Node.js 22.x | Node.js 22.x |
 | Install | `npm install` | `npm install` |
 | Build | `npm run build --workspace @privaops/web` | `npm run build --workspace @privaops/api` |
-| Output / start | `apps/web/dist` | `npm run start --workspace @privaops/api` |
+| Output / start | Next.js managed output (no custom output directory) | `npm run start --workspace @privaops/api` |
 | Environment | `VITE_API_URL=https://<api-host>/api/v1` | `NODE_ENV`, `MONGODB_URI`, `ACCESS_TOKEN_SECRET`, `WEB_ORIGIN` |
 
 For full provider configuration, cookie-origin guidance, health checks, smoke tests, hardening, rollback, and release sign-off, follow [docs/DEPLOYMENT_CHECKLIST.md](docs/DEPLOYMENT_CHECKLIST.md).
