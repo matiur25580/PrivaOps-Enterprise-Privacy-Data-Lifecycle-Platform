@@ -12,6 +12,8 @@ import type { RequestItem, RequestEvent, RequestUpdate } from './features/reques
 import type { AuditItem } from './features/audit/types';
 import type { Member } from './features/organization/types';
 import RequestDetailModal from './features/requests/RequestDetailModal';
+import InventoryPanel from './features/inventory/InventoryPanel';
+import ProcessingPanel from './features/processing/ProcessingPanel';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -44,8 +46,6 @@ export default function App() {
   const [mfaConfirmCode, setMfaConfirmCode] = useState('');
   const [mfaPassword, setMfaPassword] = useState('');
   const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<string[]>([]);
-  const [assetFormOpen, setAssetFormOpen] = useState(false);
-  const [activityFormOpen, setActivityFormOpen] = useState(false);
   const [requestFormOpen, setRequestFormOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [classificationFilter, setClassificationFilter] = useState('all');
@@ -55,8 +55,6 @@ export default function App() {
   const [eventBusy, setEventBusy] = useState(false);
   const [requestUpdate, setRequestUpdate] = useState<RequestUpdate>({ status: '', identityVerificationStatus: 'pending', resolutionSummary: '', rejectionReason: '', assignedTo: '', dueAt: '' });
   const [auth, setAuth] = useState({ fullName: '', email: '', password: '', organizationName: '' });
-  const [asset, setAsset] = useState({ name: '', system: '', ownerTeam: '', classification: 'internal', description: '', dataCategories: '', dataSubjects: '' });
-  const [activity, setActivity] = useState({ name: '', purpose: '', legalBasis: 'consent', dataCategories: '', dataSubjects: '', systems: '', assetIds: '', retentionPeriodDays: '365' });
   const [request, setRequest] = useState({ requestType: 'access', description: '' });
 
   useEffect(() => { setTab(routeTab); }, [routeTab]);
@@ -188,46 +186,6 @@ export default function App() {
     event.preventDefault(); if (!session) return;
     try { await call('/auth/mfa/disable', session.accessToken, { method: 'POST', body: JSON.stringify({ password: mfaPassword, code: mfaConfirmCode }) }); setMfaPassword(''); setMfaConfirmCode(''); setMfaRecoveryCodes([]); setMfaSetup(null); setNotice('MFA disabled and existing refresh sessions revoked. Other devices must sign in again.'); await loadMfaStatus(session); }
     catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not disable MFA.'); }
-  }
-
-  async function createAsset(event: FormEvent) {
-    event.preventDefault(); if (!session) return;
-    setBusy(true); setError('');
-    try {
-      await call(orgBase + '/data-assets', session.accessToken, { method: 'POST', body: JSON.stringify({
-        name: asset.name, system: asset.system, ownerTeam: asset.ownerTeam, classification: asset.classification,
-        description: asset.description, dataCategories: asset.dataCategories.split(',').map((v) => v.trim()).filter(Boolean),
-        dataSubjects: asset.dataSubjects.split(',').map((v) => v.trim()).filter(Boolean),
-      }) });
-      setAsset({ name: '', system: '', ownerTeam: '', classification: 'internal', description: '', dataCategories: '', dataSubjects: '' });
-      setAssetFormOpen(false); setNotice('Data asset registered.'); await load(session, query);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save asset.'); }
-    finally { setBusy(false); }
-  }
-
-  async function archiveAsset(item: Asset) {
-    if (!session || !window.confirm('Archive "' + item.name + '"? It will be removed from the active inventory.')) return;
-    try {
-      await call(orgBase + '/data-assets/' + item._id, session.accessToken, { method: 'DELETE' });
-      setNotice('Asset archived.'); await load(session, query);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not archive asset.'); }
-  }
-
-  async function createActivity(event: FormEvent) {
-    event.preventDefault(); if (!session) return;
-    try {
-      const retention = activity.retentionPeriodDays.trim() ? Number(activity.retentionPeriodDays) : null;
-      await call(orgBase + '/processing-activities', session.accessToken, { method: 'POST', body: JSON.stringify({
-        name: activity.name, purpose: activity.purpose, legalBasis: activity.legalBasis,
-        dataCategories: activity.dataCategories.split(',').map((v) => v.trim()).filter(Boolean),
-        dataSubjects: activity.dataSubjects.split(',').map((v) => v.trim()).filter(Boolean),
-        systems: activity.systems.split(',').map((v) => v.trim()).filter(Boolean),
-        assetIds: activity.assetIds.split(',').map((v) => v.trim()).filter(Boolean),
-        retentionPeriodDays: retention,
-      }) });
-      setActivity({ name: '', purpose: '', legalBasis: 'consent', dataCategories: '', dataSubjects: '', systems: '', assetIds: '', retentionPeriodDays: '365' });
-      setActivityFormOpen(false); setNotice('Processing activity recorded.'); await load(session, query);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not save processing activity.'); }
   }
 
   async function createRequest(event: FormEvent) {
@@ -375,38 +333,29 @@ export default function App() {
         {['assets', 'processing', 'requests', 'activity'].includes(tab) && <button className="secondary" onClick={exportCurrent}>↓ Export CSV</button>}
       </div>}
 
-      {tab === 'assets' && <section className="panel">
-        <div className="panel-heading"><div><p className="eyebrow">SYSTEMS & PERSONAL DATA</p><h3>Registered data assets <span className="count">{filteredAssets.length}</span></h3></div>{canManage && <button className="primary" onClick={() => setAssetFormOpen(!assetFormOpen)}>＋ Register asset</button>}</div>
-        <div className="filters"><label>Classification<select value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)}><option value="all">All classifications</option><option value="public">Public</option><option value="internal">Internal</option><option value="confidential">Confidential</option><option value="restricted">Restricted</option></select></label><label>Status<select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option><option value="active">Active</option><option value="archived">Archived</option></select></label></div>
-        {assetFormOpen && <form className="inline-form" onSubmit={createAsset}>
-          <label>Asset name<input required minLength={2} maxLength={160} value={asset.name} onChange={(e) => setAsset({ ...asset, name: e.target.value })} /></label>
-          <label>System / application<input required maxLength={160} value={asset.system} onChange={(e) => setAsset({ ...asset, system: e.target.value })} /></label>
-          <label>Owner team<input required maxLength={120} value={asset.ownerTeam} onChange={(e) => setAsset({ ...asset, ownerTeam: e.target.value })} /></label>
-          <label>Classification<select value={asset.classification} onChange={(e) => setAsset({ ...asset, classification: e.target.value })}><option value="public">Public</option><option value="internal">Internal</option><option value="confidential">Confidential</option><option value="restricted">Restricted</option></select></label>
-          <label>Data categories <small>Comma-separated</small><input placeholder="Identity, contact, financial" value={asset.dataCategories} onChange={(e) => setAsset({ ...asset, dataCategories: e.target.value })} /></label>
-          <label>Data subjects <small>Comma-separated</small><input placeholder="Customers, employees" value={asset.dataSubjects} onChange={(e) => setAsset({ ...asset, dataSubjects: e.target.value })} /></label>
-          <label className="wide">Description<textarea rows={2} maxLength={2000} value={asset.description} onChange={(e) => setAsset({ ...asset, description: e.target.value })} /></label>
-          <div className="form-actions"><button type="button" className="secondary" onClick={() => setAssetFormOpen(false)}>Cancel</button><button className="primary" disabled={busy}>Save asset</button></div>
-        </form>}
-        {busy ? <p className="empty">Loading inventory…</p> : filteredAssets.length === 0 ? <p className="empty">No matching data assets. Adjust filters or register an asset.</p> : <div className="table-wrap"><table><thead><tr><th>ASSET / SYSTEM</th><th>OWNER</th><th>DATA CATEGORIES</th><th>CLASSIFICATION</th><th>STATUS</th>{canManage && <th />}</tr></thead><tbody>{filteredAssets.map((item) => <tr key={item._id}><td><strong>{item.name}</strong><small>{item.system}</small></td><td>{item.ownerTeam}</td><td>{item.dataCategories?.join(', ') || '—'}</td><td><span className={'tag ' + item.classification}>{item.classification}</span></td><td><span className={'status-dot ' + item.status}>{item.status}</span></td>{canManage && <td>{item.status === 'active' && <button className="icon-button" title="Archive asset" onClick={() => void archiveAsset(item)}>Archive</button>}</td>}</tr>)}</tbody></table></div>}
-      </section>}
+      {tab === 'assets' && session && <InventoryPanel
+        session={session}
+        filteredAssets={filteredAssets}
+        canManage={Boolean(canManage)}
+        loading={busy}
+        classificationFilter={classificationFilter}
+        statusFilter={statusFilter}
+        onClassificationFilterChange={setClassificationFilter}
+        onStatusFilterChange={setStatusFilter}
+        onRefresh={() => load(session, query)}
+        onError={setError}
+        onNotice={setNotice}
+      />}
 
-      {tab === 'processing' && <section className="panel">
-        <div className="panel-heading"><div><p className="eyebrow">RECORD OF PROCESSING ACTIVITIES</p><h3>Processing register <span className="count">{activities.length}</span></h3></div>{canManage && <button className="primary" onClick={() => setActivityFormOpen(!activityFormOpen)}>＋ Add activity</button>}</div>
-        {activityFormOpen && <form className="inline-form" onSubmit={createActivity}>
-          <label>Activity name<input required minLength={2} maxLength={160} value={activity.name} onChange={(e) => setActivity({ ...activity, name: e.target.value })} /></label>
-          <label>Legal basis<select value={activity.legalBasis} onChange={(e) => setActivity({ ...activity, legalBasis: e.target.value })}><option value="consent">Consent</option><option value="contract">Contract</option><option value="legal_obligation">Legal obligation</option><option value="legitimate_use">Legitimate use</option><option value="public_function">Public function</option><option value="other">Other / review required</option></select></label>
-          <label className="wide">Purpose<input required minLength={5} maxLength={1000} value={activity.purpose} onChange={(e) => setActivity({ ...activity, purpose: e.target.value })} placeholder="Describe the operational purpose of this processing" /></label>
-          <label>Data categories<input placeholder="Identity, contact, usage" value={activity.dataCategories} onChange={(e) => setActivity({ ...activity, dataCategories: e.target.value })} /></label>
-          <label>Data subjects<input placeholder="Customers, employees" value={activity.dataSubjects} onChange={(e) => setActivity({ ...activity, dataSubjects: e.target.value })} /></label>
-          <label>Systems<input placeholder="CRM, billing platform" value={activity.systems} onChange={(e) => setActivity({ ...activity, systems: e.target.value })} /></label>
-          <label>Linked data assets <small>Optional — select one or more active assets</small><select multiple value={activity.assetIds.split(',').filter(Boolean)} onChange={(e) => setActivity({ ...activity, assetIds: Array.from(e.target.selectedOptions).map((option) => option.value).join(',') })}>{assets.filter((item) => item.status === 'active').map((item) => <option key={item._id} value={item._id}>{item.name} · {item.system}</option>)}</select></label>
-          <label>Retention period (days)<input type="number" min={1} max={36500} value={activity.retentionPeriodDays} onChange={(e) => setActivity({ ...activity, retentionPeriodDays: e.target.value })} /></label>
-          <div className="form-actions"><button type="button" className="secondary" onClick={() => setActivityFormOpen(false)}>Cancel</button><button className="primary">Save processing activity</button></div>
-        </form>}
-        {activities.length === 0 ? <p className="empty">No processing activities recorded yet. Add the first activity to build your processing register.</p> : <div className="table-wrap"><table><thead><tr><th>PROCESSING ACTIVITY</th><th>PURPOSE</th><th>LEGAL BASIS</th><th>SYSTEMS</th><th>RETENTION</th><th>STATUS</th></tr></thead><tbody>{activities.map((item) => <tr key={item._id}><td><strong>{item.name}</strong><small>{item.dataCategories.join(', ') || 'Categories not recorded'}</small></td><td className="purpose-cell">{item.purpose}</td><td><span className="tag">{label(item.legalBasis)}</span></td><td>{item.systems.join(', ') || '—'}</td><td>{item.retentionPeriodDays ? item.retentionPeriodDays + ' days' : <span className="warning-text">Not recorded</span>}</td><td><span className={'status-dot ' + item.status}>{label(item.status)}</span></td></tr>)}</tbody></table></div>}
-        <p className="footnote">Legal basis and retention entries are operational records, not legal determinations. Have qualified reviewers validate applicability.</p>
-      </section>}
+      {tab === 'processing' && session && <ProcessingPanel
+        session={session}
+        assets={assets}
+        activities={activities}
+        canManage={Boolean(canManage)}
+        onRefresh={() => load(session, query)}
+        onError={setError}
+        onNotice={setNotice}
+      />}
 
       {tab === 'requests' && <section className="panel">
         <div className="panel-heading"><div><p className="eyebrow">DATA SUBJECT RIGHTS OPERATIONS</p><h3>Privacy request queue <span className="count">{filteredRequests.length}</span></h3></div><button className="primary" onClick={() => setRequestFormOpen(!requestFormOpen)}>＋ New request</button></div>
