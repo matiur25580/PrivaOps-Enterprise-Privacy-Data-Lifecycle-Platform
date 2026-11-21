@@ -27,7 +27,6 @@ const initialForm = (): AssetForm => ({
 
 type InventoryPanelProps = {
   session: Session;
-  assets: Asset[];
   filteredAssets: Asset[];
   canManage: boolean;
   loading: boolean;
@@ -42,7 +41,6 @@ type InventoryPanelProps = {
 
 export default function InventoryPanel({
   session,
-  assets,
   filteredAssets,
   canManage,
   loading,
