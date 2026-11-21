@@ -1,135 +1,178 @@
-# PrivaOps — Enterprise Privacy & Data Lifecycle Operations Platform
+# PrivaOps — Enterprise Privacy & Data Lifecycle Operations
 
-> A multi-tenant privacy operations workspace for discovering personal-data processing, managing consent and data-subject requests, governing retention, coordinating privacy incidents, and maintaining auditable evidence.
+PrivaOps is a multi-tenant privacy operations workspace built to help teams understand the personal data they hold, document processing activities, coordinate data-subject requests, and retain operational evidence in one place.
 
-**Status:** Project foundation / implementation roadmap  
-**Repository:** [matiur25580/PrivaOps-Enterprise-Privacy-Data-Lifecycle-Platform](https://github.com/matiur25580/PrivaOps-Enterprise-Privacy-Data-Lifecycle-Platform)
+It is an engineering portfolio project focused on practical privacy operations—not a legal compliance product or certification.
 
-PrivaOps is an engineering portfolio project exploring how organizations can operationalize privacy governance across teams, systems, vendors, and data lifecycles. The goal is to turn fragmented spreadsheets and email-driven processes into a secure, traceable workflow.
+[![CI](https://github.com/matiur25580/PrivaOps-Enterprise-Privacy-Data-Lifecycle-Platform/actions/workflows/ci.yml/badge.svg)](https://github.com/matiur25580/PrivaOps-Enterprise-Privacy-Data-Lifecycle-Platform/actions/workflows/ci.yml)
 
-> **Important:** PrivaOps is a software engineering project, not legal advice or a certification of compliance. Regulatory mappings are intended as configurable reference material and must be reviewed by qualified privacy and legal professionals.
+## Product capabilities
 
-## Product vision
+### Implemented
 
-Organizations often struggle to answer basic but important questions:
-
-- What personal data do we process, and where is it stored?
-- Why is each processing activity performed, and who owns it?
-- How can a person exercise access, correction, erasure, or other applicable rights?
-- Which retention rules apply, and can teams prove that they followed them?
-- How are privacy incidents, vendors, and impact assessments tracked?
-- Can auditors trace decisions and evidence without relying on editable spreadsheets?
-
-PrivaOps aims to provide one operational control plane for these workflows.
-
-## Planned capabilities
-
-The following is the target scope; features are not represented as implemented until they are delivered and tested.
-
-| Domain | Planned capability |
+| Area | Capability |
 | --- | --- |
-| Organization & access | Multi-tenant workspaces, invitations, role-based access, MFA |
-| Data inventory | Data assets, systems, owners, classifications, processing activities |
-| Consent operations | Consent records, purpose tracking, preference history |
-| Privacy requests | Request intake, identity-verification state, assignment, SLA tracking, resolution evidence |
-| Retention governance | Retention schedules, review queues, disposition workflow |
-| Incident management | Incident intake, severity, tasks, timeline, lessons learned |
-| Vendor governance | Vendor register, risk reviews, assessments, remediation |
-| Privacy assessments | DPIA-style assessments, risks, mitigations, approvals |
-| Compliance workspace | Configurable controls and evidence mapped to selected frameworks |
-| Auditability | Append-oriented audit events and integrity verification |
-| Insights | Operational dashboards, overdue work, risk and SLA indicators |
-| AI assistance | Optional drafting and summarization with human review and traceable sources |
+| Identity | Organization registration, login, Argon2id password hashing, short-lived JWT access tokens, rotating opaque refresh sessions |
+| Multi-tenancy | Organization membership, server-derived tenant scope, role-based authorization |
+| Data inventory | Searchable and filterable data assets, classification, owners, data categories and subjects, soft archive |
+| Processing register | Processing purpose, operational legal-basis classification, data categories, systems, linked assets and retention period |
+| Privacy requests | Intake, own-request visibility, organization queue for authorized roles, identity-verification state, lifecycle transitions, withdrawal and event history |
+| Audit history | Organization-scoped inventory audit events, actor metadata, changed-field names and role-restricted read access |
+| Web workspace | Responsive dashboard, operational signals, search, filters, request detail timeline, CSV exports |
+| Engineering quality | TypeScript monorepo, ESLint, Vitest, CI lint/typecheck/test/build pipeline, environment validation and health endpoints |
 
-## Technology direction
+### Deliberately not claimed as complete
 
-The initial implementation is planned around the MERN ecosystem with TypeScript.
+Email verification, MFA, invitations, password recovery, consent lifecycle management, retention execution, incident response, vendor risk, DPIA workflows, evidence attachments, notifications, background jobs, and independent audit-log tamper resistance remain future work. Do not interpret a dashboard indicator as proof of legal compliance.
 
-- **Frontend:** React, Vite, TypeScript, Tailwind CSS, TanStack Query
-- **Backend:** Node.js, Express, TypeScript, Zod validation
-- **Database:** MongoDB with Mongoose
-- **Realtime:** Socket.IO for selected operational notifications
-- **Testing:** Vitest, Supertest, and Playwright
-- **Delivery:** Docker and GitHub Actions
+## Technology
 
-Supporting services (such as object storage, email delivery, and a durable background-job system) will be introduced when the relevant workflows are implemented.
+- **Frontend:** React 19, Vite 6, TypeScript
+- **API:** Node.js 22+, Express 5, TypeScript, Zod
+- **Persistence:** MongoDB and Mongoose
+- **Identity:** Argon2id, JWT access tokens, hashed rotating refresh tokens, HttpOnly cookies
+- **Quality:** ESLint, Vitest, GitHub Actions
 
-## High-level architecture
+The frontend uses system fonts and does not load third-party font assets at runtime.
 
-```text
-Browser
-  |
-  v
-React + TypeScript application
-  |
-  v
-Express API ---- Authentication / Authorization
-  |
-  +---- Tenant-scoped domain services
-  |       |
-  |       +---- Data inventory
-  |       +---- Consent & privacy requests
-  |       +---- Retention & incidents
-  |       +---- Vendors & assessments
-  |       +---- Evidence & audit events
-  |
-  v
-MongoDB
+## Repository structure
 
-Background jobs / notifications / object storage
-will be added as the implementation requires.
-```
+\`\`\`text
+apps/
+  api/       Express API, identity, inventory and privacy-request modules
+  web/       React workspace
+packages/
+  shared/    Shared package boundary
+docs/
+  ARCHITECTURE.md
+  SECURITY.md
+\`\`\`
 
-## Security principles
+## Run locally
 
-Security is a core design requirement, not a final polish task.
+Requirements: Node.js 22 or later, npm 10 or later, and MongoDB (local Docker or an accessible instance).
 
-- Enforce tenant isolation in server-side data access; never trust a tenant ID supplied by the browser.
-- Authorize every sensitive operation on the server using organization membership and role/permission checks.
-- Validate request bodies, query parameters, and path parameters.
-- Hash passwords with a modern password-hashing algorithm; never store plaintext credentials.
-- Protect sessions and tokens, apply rate limits, and avoid leaking secrets or personal data in logs.
-- Record security-relevant actions in an audit trail while minimizing sensitive payloads.
-- Use synthetic data in demos and tests; do not commit real personal information or secrets.
-- Treat AI-generated content as a draft requiring human review, not as an automated legal decision.
+1. Copy the root environment template:
 
-Audit-event integrity mechanisms will be documented with their actual guarantees. A hash chain alone does not make records immutable; production-grade tamper resistance also requires access controls, protected storage, monitoring, and independent verification.
+   \`\`\`bash
+   cp .env.example .env
+   \`\`\`
 
-## Repository roadmap
+2. Set a unique API secret. For example:
 
-Work is planned in incremental, reviewable milestones:
+   \`\`\`bash
+   openssl rand -base64 48
+   \`\`\`
 
-1. **Foundation** — repository structure, TypeScript configuration, linting, formatting, environment validation, Docker development setup, CI.
-2. **Identity & tenancy** — registration/invitations, organizations, memberships, authentication, RBAC, tenant-isolation tests.
-3. **Privacy operations** — data inventory, processing activities, consent records, privacy-request workflow.
-4. **Governance** — retention policies, incidents, vendors, assessments, evidence management.
-5. **Audit & insights** — audit event pipeline, integrity verification, dashboards, notifications.
-6. **AI-assisted workflows** — optional grounded drafting/summarization with human approval and auditability.
-7. **Release hardening** — threat review, integration and end-to-end tests, API documentation, deployment guide, demo data.
+   Put the generated value in \`ACCESS_TOKEN_SECRET\`. Never commit a real secret.
 
-Milestones will be marked complete only when the code, tests, and documentation support the claim.
+3. Start MongoDB if using the included Docker Compose service:
 
-## Local development
+   \`\`\`bash
+   docker compose up -d mongodb
+   \`\`\`
 
-Local setup instructions will be added alongside the first runnable application scaffold. Do not add real credentials to the repository. A future `.env.example` will document required configuration using placeholder values.
+4. Install and run the monorepo:
 
-## Quality goals
+   \`\`\`bash
+   npm install
+   npm run dev
+   \`\`\`
 
-- Clear separation between UI, API, domain services, and persistence.
-- Consistent API contracts and structured error responses.
-- Automated tests for tenant boundaries and authorization failures.
-- Reproducible local development and CI checks.
-- Useful API documentation and a seeded demo organization.
-- Accessible, responsive interfaces with realistic operational states.
+5. In \`apps/web/.env\`, set the API base URL including the version prefix:
 
-## Regulatory context
+   \`\`\`dotenv
+   VITE_API_URL=http://localhost:4000/api/v1
+   \`\`\`
 
-The project may include configurable reference mappings for privacy regimes such as the EU GDPR and India's Digital Personal Data Protection framework. These mappings are informational engineering aids only. Applicability, legal interpretation, effective dates, and organizational obligations must be confirmed against current official sources and professional advice.
+The web app runs at \`http://localhost:5173\`; the API runs at \`http://localhost:4000\` by default.
 
-## Contributing
+### Environment variables
 
-This repository is currently being established. Issues and focused pull requests are welcome once the contribution and development conventions are documented.
+| Variable | Purpose |
+| --- | --- |
+| \`NODE_ENV\` | \`development\`, \`test\`, or \`production\` |
+| \`API_PORT\` | API listen port; defaults to the platform \`PORT\` when present, otherwise 4000 |
+| \`WEB_ORIGIN\` | Exact browser origin allowed by credentialed CORS |
+| \`MONGODB_URI\` | MongoDB connection URI |
+| \`ACCESS_TOKEN_SECRET\` | Required secret with at least 32 characters |
+| \`ACCESS_TOKEN_TTL_SECONDS\` | Access-token lifetime (300–3600 seconds) |
+| \`REFRESH_TOKEN_TTL_DAYS\` | Refresh-session lifetime (1–30 days) |
+| \`VITE_API_URL\` | Browser-visible API URL including \`/api/v1\`; never put secrets in \`VITE_*\` variables |
+
+The API requires \`MONGODB_URI\` and \`ACCESS_TOKEN_SECRET\` to be valid before it starts. The web app's \`.env.example\` is in \`apps/web/\`.
+
+## Quality checks
+
+Run from the repository root:
+
+\`\`\`bash
+npm run lint
+npm run typecheck
+npm run test
+npm run build
+\`\`\`
+
+CI runs the same checks on pull requests and pushes to \`main\`.
+
+## API surface
+
+The versioned API is mounted under \`/api/v1\`.
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| POST | \`/auth/register\` | Create a user and organization |
+| POST | \`/auth/login\` | Authenticate and issue a session |
+| POST | \`/auth/refresh\` | Rotate refresh session |
+| POST | \`/auth/logout\` | Revoke refresh session |
+| GET | \`/auth/me\` | Current authenticated identity |
+| GET | \`/organizations/:id/context\` | Current organization context |
+| GET/POST | \`/organizations/:id/data-assets\` | List and register assets |
+| PATCH/DELETE | \`/organizations/:id/data-assets/:assetId\` | Update or archive an asset |
+| GET/POST | \`/organizations/:id/processing-activities\` | List and register processing activities |
+| PATCH/DELETE | \`/organizations/:id/processing-activities/:activityId\` | Update or archive an activity |
+| GET | \`/organizations/:id/audit-events\` | Read inventory audit history (owner/admin) |
+| GET/POST | \`/organizations/:id/privacy-requests\` | Read queue and submit requests |
+| GET | \`/organizations/:id/privacy-requests/mine\` | Read own requests |
+| GET | \`/organizations/:id/privacy-requests/:requestId/events\` | Read request event history |
+| PATCH | \`/organizations/:id/privacy-requests/:requestId\` | Update workflow (owner/admin) |
+| POST | \`/organizations/:id/privacy-requests/:requestId/withdraw\` | Withdraw own request |
+| GET | \`/health/live\` | Process liveness |
+| GET | \`/health/ready\` | MongoDB readiness |
+
+## Security model and known limitations
+
+- Organization IDs from URLs are selectors, never authorization. The API derives the authenticated organization from the verified token and active membership.
+- Data access and audit queries are organization-scoped on the server.
+- Roles are enforced by API middleware; hiding a UI control is not considered authorization.
+- Passwords are hashed with Argon2id. Refresh tokens are opaque, hashed at rest, rotated, and delivered in an HttpOnly cookie.
+- The browser keeps the short-lived access token in memory, not local storage. A 401 response attempts one refresh and retries the request.
+- Audit events store action/resource metadata and changed-field names, not before/after personal-data values.
+- Hashing or append-oriented writes alone do not guarantee immutable audit evidence. Production deployments need protected storage, least-privilege access, independent monitoring, backups, and an external integrity strategy.
+- Production hardening still requires a threat model, CSRF review for cookie-authenticated flows, email verification, MFA, account recovery, dependency review, secrets management, rate-limit strategy, and integration/end-to-end testing.
+
+See [docs/SECURITY.md](docs/SECURITY.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Manual deployment handoff
+
+Deployment is intentionally an operator-controlled step. No deployment is performed by the repository workflow.
+
+Before deploying:
+1. Provision a dedicated MongoDB database and a least-privilege database user.
+2. Set API environment variables securely: \`NODE_ENV=production\`, \`MONGODB_URI\`, \`ACCESS_TOKEN_SECRET\`, and the exact \`WEB_ORIGIN\`.
+3. Ensure the API platform's injected \`PORT\` is honored (the API defaults \`API_PORT\` to \`PORT\` when available).
+4. Set the frontend's \`VITE_API_URL\` to the API origin plus \`/api/v1\`, then build the web app.
+5. Configure HTTPS, secure cookie behavior, allowed origins, MongoDB network access, backups, monitoring, and rollback procedures.
+6. Verify \`/health/live\`, \`/health/ready\`, authentication, tenant boundaries, and role restrictions using synthetic data.
+
+A successful frontend build does not prove that the API, database, cookies, or end-to-end workflows are production-ready.
+
+## Regulatory and demo guidance
+
+PrivaOps can support configurable operational mappings to privacy frameworks, but applicability and legal interpretation must be reviewed by qualified professionals. India DPDP, GDPR, and other regulatory obligations can have different scopes, timelines, and exceptions; this software does not determine them.
+
+Use synthetic identities and records in demos. Never put real personal data, access tokens, database URIs, or production secrets into screenshots, issues, commits, or test fixtures.
 
 ## License
 
-A license has not yet been selected. Until one is added, all rights are reserved by the repository owner; do not assume the code is open for reuse.
+No license has been selected. Unless and until one is added, all rights are reserved by the repository owner.
