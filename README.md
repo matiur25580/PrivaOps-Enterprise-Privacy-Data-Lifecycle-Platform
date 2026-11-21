@@ -37,7 +37,7 @@ The frontend uses system fonts and does not load third-party font assets at runt
 
 ## Repository structure
 
-\`\`\`text
+```text
 apps/
   api/       Express API, identity, inventory and privacy-request modules
   web/       React workspace
@@ -46,7 +46,7 @@ packages/
 docs/
   ARCHITECTURE.md
   SECURITY.md
-\`\`\`
+```
 
 ## Run locally
 
@@ -54,91 +54,91 @@ Requirements: Node.js 22 or later, npm 10 or later, and MongoDB (local Docker or
 
 1. Copy the root environment template:
 
-   \`\`\`bash
+   ```bash
    cp .env.example .env
-   \`\`\`
+   ```
 
 2. Set a unique API secret. For example:
 
-   \`\`\`bash
+   ```bash
    openssl rand -base64 48
-   \`\`\`
+   ```
 
-   Put the generated value in \`ACCESS_TOKEN_SECRET\`. Never commit a real secret.
+   Put the generated value in `ACCESS_TOKEN_SECRET`. Never commit a real secret.
 
 3. Start MongoDB if using the included Docker Compose service:
 
-   \`\`\`bash
+   ```bash
    docker compose up -d mongodb
-   \`\`\`
+   ```
 
 4. Install and run the monorepo:
 
-   \`\`\`bash
+   ```bash
    npm install
    npm run dev
-   \`\`\`
+   ```
 
-5. In \`apps/web/.env\`, set the API base URL including the version prefix:
+5. In `apps/web/.env`, set the API base URL including the version prefix:
 
-   \`\`\`dotenv
+   ```dotenv
    VITE_API_URL=http://localhost:4000/api/v1
-   \`\`\`
+   ```
 
-The web app runs at \`http://localhost:5173\`; the API runs at \`http://localhost:4000\` by default.
+The web app runs at `http://localhost:5173`; the API runs at `http://localhost:4000` by default.
 
 ### Environment variables
 
 | Variable | Purpose |
 | --- | --- |
-| \`NODE_ENV\` | \`development\`, \`test\`, or \`production\` |
-| \`API_PORT\` | API listen port; defaults to the platform \`PORT\` when present, otherwise 4000 |
-| \`WEB_ORIGIN\` | Exact browser origin allowed by credentialed CORS |
-| \`MONGODB_URI\` | MongoDB connection URI |
-| \`ACCESS_TOKEN_SECRET\` | Required secret with at least 32 characters |
-| \`ACCESS_TOKEN_TTL_SECONDS\` | Access-token lifetime (300–3600 seconds) |
-| \`REFRESH_TOKEN_TTL_DAYS\` | Refresh-session lifetime (1–30 days) |
-| \`VITE_API_URL\` | Browser-visible API URL including \`/api/v1\`; never put secrets in \`VITE_*\` variables |
+| `NODE_ENV` | `development`, `test`, or `production` |
+| `API_PORT` | API listen port; defaults to the platform `PORT` when present, otherwise 4000 |
+| `WEB_ORIGIN` | Exact browser origin allowed by credentialed CORS |
+| `MONGODB_URI` | MongoDB connection URI |
+| `ACCESS_TOKEN_SECRET` | Required secret with at least 32 characters |
+| `ACCESS_TOKEN_TTL_SECONDS` | Access-token lifetime (300–3600 seconds) |
+| `REFRESH_TOKEN_TTL_DAYS` | Refresh-session lifetime (1–30 days) |
+| `VITE_API_URL` | Browser-visible API URL including `/api/v1`; never put secrets in `VITE_*` variables |
 
-The API requires \`MONGODB_URI\` and \`ACCESS_TOKEN_SECRET\` to be valid before it starts. The web app's \`.env.example\` is in \`apps/web/\`.
+The API requires `MONGODB_URI` and `ACCESS_TOKEN_SECRET` to be valid before it starts. The web app's `.env.example` is in `apps/web/`.
 
 ## Quality checks
 
 Run from the repository root:
 
-\`\`\`bash
+```bash
 npm run lint
 npm run typecheck
 npm run test
 npm run build
-\`\`\`
+```
 
-CI runs the same checks on pull requests and pushes to \`main\`.
+CI runs the same checks on pull requests and pushes to `main`.
 
 ## API surface
 
-The versioned API is mounted under \`/api/v1\`.
+The versioned API is mounted under `/api/v1`.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| POST | \`/auth/register\` | Create a user and organization |
-| POST | \`/auth/login\` | Authenticate and issue a session |
-| POST | \`/auth/refresh\` | Rotate refresh session |
-| POST | \`/auth/logout\` | Revoke refresh session |
-| GET | \`/auth/me\` | Current authenticated identity |
-| GET | \`/organizations/:id/context\` | Current organization context |
-| GET/POST | \`/organizations/:id/data-assets\` | List and register assets |
-| PATCH/DELETE | \`/organizations/:id/data-assets/:assetId\` | Update or archive an asset |
-| GET/POST | \`/organizations/:id/processing-activities\` | List and register processing activities |
-| PATCH/DELETE | \`/organizations/:id/processing-activities/:activityId\` | Update or archive an activity |
-| GET | \`/organizations/:id/audit-events\` | Read inventory audit history (owner/admin) |
-| GET/POST | \`/organizations/:id/privacy-requests\` | Read queue and submit requests |
-| GET | \`/organizations/:id/privacy-requests/mine\` | Read own requests |
-| GET | \`/organizations/:id/privacy-requests/:requestId/events\` | Read request event history |
-| PATCH | \`/organizations/:id/privacy-requests/:requestId\` | Update workflow (owner/admin) |
-| POST | \`/organizations/:id/privacy-requests/:requestId/withdraw\` | Withdraw own request |
-| GET | \`/health/live\` | Process liveness |
-| GET | \`/health/ready\` | MongoDB readiness |
+| POST | `/auth/register` | Create a user and organization |
+| POST | `/auth/login` | Authenticate and issue a session |
+| POST | `/auth/refresh` | Rotate refresh session |
+| POST | `/auth/logout` | Revoke refresh session |
+| GET | `/auth/me` | Current authenticated identity |
+| GET | `/organizations/:id/context` | Current organization context |
+| GET/POST | `/organizations/:id/data-assets` | List and register assets |
+| PATCH/DELETE | `/organizations/:id/data-assets/:assetId` | Update or archive an asset |
+| GET/POST | `/organizations/:id/processing-activities` | List and register processing activities |
+| PATCH/DELETE | `/organizations/:id/processing-activities/:activityId` | Update or archive an activity |
+| GET | `/organizations/:id/audit-events` | Read inventory audit history (owner/admin) |
+| GET/POST | `/organizations/:id/privacy-requests` | Read queue and submit requests |
+| GET | `/organizations/:id/privacy-requests/mine` | Read own requests |
+| GET | `/organizations/:id/privacy-requests/:requestId/events` | Read request event history |
+| PATCH | `/organizations/:id/privacy-requests/:requestId` | Update workflow (owner/admin) |
+| POST | `/organizations/:id/privacy-requests/:requestId/withdraw` | Withdraw own request |
+| GET | `/health/live` | Process liveness |
+| GET | `/health/ready` | MongoDB readiness |
 
 ## Security model and known limitations
 
@@ -159,11 +159,11 @@ Deployment is intentionally an operator-controlled step. No deployment is perfor
 
 Before deploying:
 1. Provision a dedicated MongoDB database and a least-privilege database user.
-2. Set API environment variables securely: \`NODE_ENV=production\`, \`MONGODB_URI\`, \`ACCESS_TOKEN_SECRET\`, and the exact \`WEB_ORIGIN\`.
-3. Ensure the API platform's injected \`PORT\` is honored (the API defaults \`API_PORT\` to \`PORT\` when available).
-4. Set the frontend's \`VITE_API_URL\` to the API origin plus \`/api/v1\`, then build the web app.
+2. Set API environment variables securely: `NODE_ENV=production`, `MONGODB_URI`, `ACCESS_TOKEN_SECRET`, and the exact `WEB_ORIGIN`.
+3. Ensure the API platform's injected `PORT` is honored (the API defaults `API_PORT` to `PORT` when available).
+4. Set the frontend's `VITE_API_URL` to the API origin plus `/api/v1`, then build the web app.
 5. Configure HTTPS, secure cookie behavior, allowed origins, MongoDB network access, backups, monitoring, and rollback procedures.
-6. Verify \`/health/live\`, \`/health/ready\`, authentication, tenant boundaries, and role restrictions using synthetic data.
+6. Verify `/health/live`, `/health/ready`, authentication, tenant boundaries, and role restrictions using synthetic data.
 
 A successful frontend build does not prove that the API, database, cookies, or end-to-end workflows are production-ready.
 
