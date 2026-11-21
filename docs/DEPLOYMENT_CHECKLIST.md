@@ -83,7 +83,7 @@ Import the same repository as a Vercel project. Configure it from the **reposito
 
 | Setting | Value |
 | --- | --- |
-| Framework preset | Vite |
+| Framework preset | Next.js |
 | Root directory | Repository root |
 | Install command | \`npm install\` |
 | Build command | \`npm run build --workspace @privaops/web\` |
@@ -93,12 +93,12 @@ Import the same repository as a Vercel project. Configure it from the **reposito
 Set this build-time environment variable for the intended environment:
 
 \`\`\`dotenv
-VITE_API_URL=https://<api-host>/api/v1
+NEXT_PUBLIC_API_URL=https://<api-host>/api/v1
 \`\`\`
 
-\`VITE_API_URL\` is public browser configuration. Never place MongoDB credentials, JWT signing secrets, API keys, or other secrets in a \`VITE_*\` variable.
+\`NEXT_PUBLIC_API_URL\` is public browser configuration. Never place MongoDB credentials, JWT signing secrets, API keys, or other secrets in a \`VITE_*\` variable.
 
-Redeploy/rebuild the web project after changing \`VITE_API_URL\`; Vite embeds it into the generated browser bundle.
+Redeploy/rebuild the web project after changing \`NEXT_PUBLIC_API_URL\`; Next.js embeds it into the generated browser bundle.
 
 ## 4. Match origins and cookie behavior
 
