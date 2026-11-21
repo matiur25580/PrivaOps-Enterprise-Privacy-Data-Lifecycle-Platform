@@ -81,5 +81,5 @@ This is not a production security certification. See [SECURITY.md](SECURITY.md) 
 2. Copy `.env.example` to `.env` and generate a unique `ACCESS_TOKEN_SECRET`.
 3. Start MongoDB with `docker compose up -d mongodb`.
 4. Run `npm install` from the repository root.
-5. Set `VITE_API_URL=http://localhost:4000/api/v1` in `apps/web/.env`.
+5. Set `NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1` in `apps/web/.env`.
 6. Run `npm run dev`.
