@@ -128,7 +128,7 @@ export default function App() {
       call<{ items: RequestItem[] }>(requestPath, current.accessToken)
         .catch(() => call<{ items: RequestItem[] }>(base + '/privacy-requests/mine?limit=100', current.accessToken)),
       current.organization.role === 'owner' || current.organization.role === 'admin'
-        ? call<{ items: AuditItem[] }>(base + '/audit-events?limit=8', current.accessToken)
+        ? call<{ items: AuditItem[] }>(base + '/audit-events?' + params, current.accessToken)
         : Promise.resolve({ items: [] as AuditItem[] }),
       current.organization.role === 'owner' || current.organization.role === 'admin'
         ? call<{ members: Member[] }>(base + '/members', current.accessToken)
@@ -401,7 +401,7 @@ export default function App() {
           <label>Data categories<input placeholder="Identity, contact, usage" value={activity.dataCategories} onChange={(e) => setActivity({ ...activity, dataCategories: e.target.value })} /></label>
           <label>Data subjects<input placeholder="Customers, employees" value={activity.dataSubjects} onChange={(e) => setActivity({ ...activity, dataSubjects: e.target.value })} /></label>
           <label>Systems<input placeholder="CRM, billing platform" value={activity.systems} onChange={(e) => setActivity({ ...activity, systems: e.target.value })} /></label>
-          <label>Linked asset IDs <small>Optional, comma-separated database IDs</small><input value={activity.assetIds} onChange={(e) => setActivity({ ...activity, assetIds: e.target.value })} /></label>
+          <label>Linked data assets <small>Optional — select one or more active assets</small><select multiple value={activity.assetIds.split(',').filter(Boolean)} onChange={(e) => setActivity({ ...activity, assetIds: Array.from(e.target.selectedOptions).map((option) => option.value).join(',') })}>{assets.filter((item) => item.status === 'active').map((item) => <option key={item._id} value={item._id}>{item.name} · {item.system}</option>)}</select></label>
           <label>Retention period (days)<input type="number" min={1} max={36500} value={activity.retentionPeriodDays} onChange={(e) => setActivity({ ...activity, retentionPeriodDays: e.target.value })} /></label>
           <div className="form-actions"><button type="button" className="secondary" onClick={() => setActivityFormOpen(false)}>Cancel</button><button className="primary">Save processing activity</button></div>
         </form>}
