@@ -22,6 +22,12 @@ interface MembershipRecord {
   createdAt: Date;
   updatedAt: Date;
 }
+interface MfaChallengeRecord {
+  tokenId: string;
+  userId: Types.ObjectId;
+  organizationId: Types.ObjectId;
+  expiresAt: Date;
+}
 interface RefreshSessionRecord {
   userId: Types.ObjectId;
   organizationId: Types.ObjectId;
@@ -54,6 +60,13 @@ const membershipSchema = new Schema({
 }, { timestamps: true });
 membershipSchema.index({ userId: 1, organizationId: 1 }, { unique: true });
 
+const mfaChallengeSchema = new Schema({
+  tokenId: { type: String, required: true, unique: true, select: false },
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
+  expiresAt: { type: Date, required: true, expires: 0 },
+}, { timestamps: true });
+
 const refreshSessionSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
@@ -67,3 +80,5 @@ export const User: Model<UserRecord> = (models.User as Model<UserRecord> | undef
 export const Organization: Model<OrganizationRecord> = (models.Organization as Model<OrganizationRecord> | undefined) ?? model<OrganizationRecord>('Organization', organizationSchema);
 export const Membership: Model<MembershipRecord> = (models.Membership as Model<MembershipRecord> | undefined) ?? model<MembershipRecord>('Membership', membershipSchema);
 export const RefreshSession: Model<RefreshSessionRecord> = (models.RefreshSession as Model<RefreshSessionRecord> | undefined) ?? model<RefreshSessionRecord>('RefreshSession', refreshSessionSchema);
+
+export const MfaChallenge: Model<MfaChallengeRecord> = (models.MfaChallenge as Model<MfaChallengeRecord> | undefined) ?? model<MfaChallengeRecord>('MfaChallenge', mfaChallengeSchema);
