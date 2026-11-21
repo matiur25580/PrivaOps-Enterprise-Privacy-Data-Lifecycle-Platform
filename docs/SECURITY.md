@@ -27,7 +27,7 @@ This document describes the current engineering controls and the remaining work.
 
 ## Important residual risks
 
-1. **Account lifecycle:** registration email verification and password recovery are implemented with single-use, expiring tokens. Organization invitations and a formal account lockout policy remain outstanding. TOTP MFA and one-time recovery codes are also implemented.
+1. **Account lifecycle:** registration email verification and password recovery use single-use, expiring tokens. Organization invitations and a formal account lockout policy remain outstanding. TOTP MFA and one-time recovery codes are also implemented.
 2. **Cookie/CSRF posture:** cookie-authenticated registration, login, refresh, and logout require an exact match with the configured WEB_ORIGIN. Production refresh cookies use Secure + SameSite=None so a separately hosted browser app can send them. Verify the exact deployed origin, HTTPS, browser third-party-cookie behavior, and the final domain topology; prefer same-site custom domains where possible.
 3. **Access-token revocation:** access tokens are short-lived; refresh-session logout does not instantly revoke an already-issued access token. Membership and account state are reloaded, but session-level revocation is not checked on every request.
 4. **Registration/session semantics:** review registration response and cookie behavior, organization selection, and duplicate-registration race handling.
