@@ -4,15 +4,15 @@
 
 PrivaOps is a TypeScript monorepo with a browser application, HTTP API, and shared package boundary.
 
-- \`apps/web\`: React 19 + Vite workspace.
-- \`apps/api\`: Express 5 API, environment validation, MongoDB connection.
-- \`packages/shared\`: framework-independent shared contracts.
-- \`docs\`: architecture, security posture, and operator guidance.
+- `apps/web`: React 19 + Vite workspace.
+- `apps/api`: Express 5 API, environment validation, MongoDB connection.
+- `packages/shared`: framework-independent shared contracts.
+- `docs`: architecture, security posture, and operator guidance.
 
 ## Runtime flow
 
 1. The browser loads the React application.
-2. The frontend calls the versioned API at \`/api/v1\`.
+2. The frontend calls the versioned API at `/api/v1`.
 3. Express applies Helmet, credentialed CORS for the configured origin, bounded JSON parsing, cookie parsing, and structured request logging.
 4. Authentication verifies JWT claims, reloads the user and active membership, and derives organization scope server-side.
 5. Domain routes apply role permissions and organization-scoped database filters.
@@ -44,10 +44,10 @@ PrivaOps is a TypeScript monorepo with a browser application, HTTP API, and shar
 
 ## API health
 
-- \`GET /health/live\`: process liveness; does not imply dependencies are available.
-- \`GET /health/ready\`: readiness; returns 503 until MongoDB is connected.
-- \`GET /api/v1\`: API identity and version.
-- API listen port defaults to the platform-provided \`PORT\`, or 4000 locally.
+- `GET /health/live`: process liveness; does not imply dependencies are available.
+- `GET /health/ready`: readiness; returns 503 until MongoDB is connected.
+- `GET /api/v1`: API identity and version.
+- API listen port defaults to the platform-provided `PORT`, or 4000 locally.
 
 ## Multi-tenancy invariants
 
@@ -63,7 +63,7 @@ PrivaOps is a TypeScript monorepo with a browser application, HTTP API, and shar
 - Access tokens remain in JavaScript memory; they are not written to localStorage or sessionStorage.
 - Refresh uses an HttpOnly cookie and a single in-flight refresh promise to avoid parallel rotation races.
 - A 401 response may trigger one refresh attempt and one retry.
-- The API base URL includes \`/api/v1\`; browser environment variables must never contain secrets.
+- The API base URL includes `/api/v1`; browser environment variables must never contain secrets.
 
 ## Audit semantics
 
@@ -78,8 +78,8 @@ This is not a production security certification. See [SECURITY.md](SECURITY.md) 
 ## Local development
 
 1. Use Node.js 22+ and npm 10+.
-2. Copy \`.env.example\` to \`.env\` and generate a unique \`ACCESS_TOKEN_SECRET\`.
-3. Start MongoDB with \`docker compose up -d mongodb\`.
-4. Run \`npm install\` from the repository root.
-5. Set \`VITE_API_URL=http://localhost:4000/api/v1\` in \`apps/web/.env\`.
-6. Run \`npm run dev\`.
+2. Copy `.env.example` to `.env` and generate a unique `ACCESS_TOKEN_SECRET`.
+3. Start MongoDB with `docker compose up -d mongodb`.
+4. Run `npm install` from the repository root.
+5. Set `VITE_API_URL=http://localhost:4000/api/v1` in `apps/web/.env`.
+6. Run `npm run dev`.
