@@ -371,7 +371,7 @@ export default function App() {
       {error && <p className="alert error" role="alert">{error}</p>}
       <button className="primary full" disabled={authBusy}>{authBusy ? 'Please wait…' : mode === 'login' ? 'Sign in securely' : 'Create workspace'}</button>
       <p className="switch-auth">{mode === 'login' ? 'New to PrivaOps?' : 'Already registered?'} <button type="button" className="link-button" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>{mode === 'login' ? 'Create an account' : 'Sign in'}</button></p>
-    </form></section>
+    </form></>}</div></section>
   </main>;
 
   return <main className="app-shell">
