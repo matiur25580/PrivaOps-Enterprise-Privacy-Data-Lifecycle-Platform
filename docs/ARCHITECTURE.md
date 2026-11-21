@@ -83,3 +83,15 @@ This is not a production security certification. See [SECURITY.md](SECURITY.md) 
 4. Run `npm install` from the repository root.
 5. Set `NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1` in `apps/web/.env`.
 6. Run `npm run dev`.
+
+
+## Frontend feature module boundaries
+
+The web client is incrementally organized under `apps/web/src/features` and `apps/web/src/lib`:
+
+- Feature folders own their domain data contracts; privacy requests also own workflow transition metadata and the request-detail/timeline component.
+- `lib/api-client.ts` centralizes credentialed transport, in-memory bearer-token handling, refresh single-flight, and one-time retry.
+- `lib/csv.ts` and `lib/format.ts` contain shared presentation utilities.
+- `App.tsx` remains the cross-feature workspace orchestrator during this staged migration.
+
+See [FRONTEND_FEATURE_MODULES.md](FRONTEND_FEATURE_MODULES.md) for the detailed module map, tests, and security invariants.
