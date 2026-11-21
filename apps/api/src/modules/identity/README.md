@@ -19,9 +19,10 @@ All endpoints are mounted below `/api/v1`.
 - Passwords are hashed with Argon2id; plaintext passwords are never persisted.
 - Access tokens are short-lived signed JWTs (15 minutes by default).
 - Refresh tokens are random opaque values. Only SHA-256 hashes are stored in MongoDB.
-- Refresh tokens are delivered in an HttpOnly, SameSite=Strict cookie scoped to the auth path.
+- Refresh tokens are delivered in an HttpOnly cookie scoped to the auth path. Development uses SameSite=Lax; production uses Secure + SameSite=None for separately hosted browser/API origins. Prefer same-site custom domains and verify browser third-party-cookie behavior.
 - Refresh rotation deletes the old session before issuing a new one.
 - Login and registration are rate-limited.
+- Login performs a dummy Argon2id verification when an account is unknown or inactive, reducing account-enumeration timing differences.
 - The API reloads the active user and organization membership for each authenticated request. A role claim from the browser is never trusted.
 
 ## Tenant isolation

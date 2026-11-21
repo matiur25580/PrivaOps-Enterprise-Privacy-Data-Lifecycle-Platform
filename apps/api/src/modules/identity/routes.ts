@@ -8,6 +8,7 @@ import { env } from '../../env.js';
 import { Membership, Organization, RefreshSession, User } from './models.js';
 import { authenticate, requireOrganizationScope, requirePermission } from './middleware.js';
 import { createAccessToken, createRefreshToken, getRefreshCookieOptions, hashRefreshToken } from './tokens.js';
+import { verifyPassword } from './password.js';
 import type { OrganizationRole } from './types.js';
 
 export const identityRouter = Router();
@@ -123,9 +124,10 @@ identityRouter.post('/auth/login', authLimiter, requireTrustedOrigin, async (req
 
   const user = await User.findOne({ email: parsed.data.email.toLowerCase(), status: 'active' })
     .select('+passwordHash fullName email');
-  const passwordMatches = user
-    ? await argon2.verify(user.passwordHash as string, parsed.data.password).catch(() => false)
-    : false;
+  const passwordMatches = await verifyPassword(
+    user?.passwordHash as string | undefined,
+    parsed.data.password,
+  );
 
   if (!user || !passwordMatches) {
     response.status(401).json({ error: { code: 'INVALID_CREDENTIALS', message: 'Email or password is incorrect.' } });
