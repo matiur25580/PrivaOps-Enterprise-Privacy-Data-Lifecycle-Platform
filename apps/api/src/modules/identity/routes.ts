@@ -121,16 +121,21 @@ identityRouter.post('/auth/register', authLimiter, requireTrustedOrigin, async (
     });
     organizationId = String(organization._id);
     await Membership.create({ userId, organizationId, role: 'owner', status: 'active' });
+    let emailDeliveryPending = false;
     try {
       await issueEmailAction(userId, email, user.fullName, 'email_verification');
     } catch (error) {
+      emailDeliveryPending = true;
       console.error('Could not send registration verification email:', error);
     }
     response.status(201).json({
       data: {
         emailVerificationRequired: true,
+        emailDeliveryPending,
         email: user.email,
-        message: 'Check your inbox for a verification link. You can request another link if needed.',
+        message: emailDeliveryPending
+          ? 'Your account is pending verification, but email delivery is temporarily unavailable. Ask an administrator to configure email or request a new link later.'
+          : 'Check your inbox for a verification link. You can request another link if needed.',
       },
     });
   } catch (error) {
