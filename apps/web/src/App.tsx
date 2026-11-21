@@ -3,6 +3,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 type User = { id: string; fullName: string; email: string };
 type Org = { id: string; name: string; slug?: string; role: string };
 type Session = { user: User; organization: Org; accessToken: string };
+type MfaSetup = { secret: string; otpauthUri: string; instructions: string };
 type Asset = {
   _id: string; name: string; description?: string; system: string; ownerTeam: string;
   classification: string; dataCategories?: string[]; dataSubjects?: string[]; status: string;
@@ -88,7 +89,7 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [booting, setBooting] = useState(true);
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [tab, setTab] = useState<'overview' | 'assets' | 'processing' | 'requests' | 'activity'>('overview');
+  const [tab, setTab] = useState<'overview' | 'assets' | 'processing' | 'requests' | 'activity' | 'security'>('overview');
   const [assets, setAssets] = useState<Asset[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [requests, setRequests] = useState<RequestItem[]>([]);
@@ -98,6 +99,15 @@ export default function App() {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
+  const [mfaChallenge, setMfaChallenge] = useState('');
+  const [mfaCode, setMfaCode] = useState('');
+  const [mfaRecoveryMode, setMfaRecoveryMode] = useState(false);
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [recoveryRemaining, setRecoveryRemaining] = useState(0);
+  const [mfaSetup, setMfaSetup] = useState<MfaSetup | null>(null);
+  const [mfaConfirmCode, setMfaConfirmCode] = useState('');
+  const [mfaPassword, setMfaPassword] = useState('');
+  const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<string[]>([]);
   const [assetFormOpen, setAssetFormOpen] = useState(false);
   const [activityFormOpen, setActivityFormOpen] = useState(false);
   const [requestFormOpen, setRequestFormOpen] = useState(false);
@@ -163,6 +173,8 @@ export default function App() {
   }, []);
 
   useEffect(() => { if (session) void load(session, query); }, [session, load]);
+  const loadMfaStatus = useCallback(async (current: Session) => { try { const status = await call<{ enabled: boolean; recoveryCodesRemaining: number }>('/auth/mfa/status', current.accessToken); setMfaEnabled(status.enabled); setRecoveryRemaining(status.recoveryCodesRemaining); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not load MFA status.'); } }, []);
+  useEffect(() => { if (session) void loadMfaStatus(session); }, [session, loadMfaStatus]);
 
   const openRequests = useMemo(() => requests.filter((item) => !terminalStatuses.includes(item.status)).length, [requests]);
   const overdueRequests = useMemo(() => requests.filter((item) => item.dueAt && new Date(item.dueAt).getTime() < Date.now() && !terminalStatuses.includes(item.status)).length, [requests]);
@@ -182,7 +194,9 @@ export default function App() {
       const payload = mode === 'login'
         ? { email: auth.email, password: auth.password }
         : auth;
-      const result = await call<Omit<Session, 'organization'> & { organization: Org }>(path, undefined, { method: 'POST', body: JSON.stringify(payload) });
+      const result = await call<{ mfaRequired?: boolean; challengeToken?: string; accessToken?: string; user?: User; organization?: Org }>(path, undefined, { method: 'POST', body: JSON.stringify(payload) });
+      if (result.mfaRequired && result.challengeToken) { setMfaChallenge(result.challengeToken); setMfaCode(''); setMfaRecoveryMode(false); setNotice('Password verified. Complete the second authentication step.'); return; }
+      if (!result.accessToken || !result.organization || !result.user) throw new Error('The authentication response was incomplete.');
       activeAccessToken = result.accessToken;
       const context = await call<{ organization: { id: string; name: string; slug: string }; membership: { role: string } }>(
         '/organizations/' + encodeURIComponent(result.organization.id) + '/context', result.accessToken,
@@ -198,6 +212,38 @@ export default function App() {
     activeAccessToken = undefined;
     setSession(null); setAssets([]); setActivities([]); setRequests([]); setAudit([]); setMembers([]);
     setNotice('You have signed out.');
+  }
+
+
+  async function verifyMfaLogin(event: FormEvent) {
+    event.preventDefault(); if (!mfaChallenge) return; setError(''); setAuthBusy(true);
+    try {
+      const result = await call<{ accessToken: string; user: User; organization: Org }>('/auth/mfa/verify-login', undefined, { method: 'POST', body: JSON.stringify({ challengeToken: mfaChallenge, ...(mfaRecoveryMode ? { recoveryCode: mfaCode } : { code: mfaCode }) }) });
+      activeAccessToken = result.accessToken;
+      const context = await call<{ organization: { id: string; name: string; slug: string }; membership: { role: string } }>('/organizations/' + encodeURIComponent(result.organization.id) + '/context', result.accessToken);
+      setSession({ user: result.user, organization: { ...context.organization, role: context.membership.role }, accessToken: result.accessToken });
+      setMfaChallenge(''); setMfaCode(''); setNotice('Multi-factor authentication complete.');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'MFA verification failed.'); } finally { setAuthBusy(false); }
+  }
+  async function startMfaSetup() {
+    if (!session) return;
+    try { const result = await call<MfaSetup>('/auth/mfa/setup', session.accessToken, { method: 'POST' }); setMfaSetup(result); setMfaConfirmCode(''); setMfaRecoveryCodes([]); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not start MFA setup.'); }
+  }
+  async function confirmMfaSetup(event: FormEvent) {
+    event.preventDefault(); if (!session) return;
+    try { await call('/auth/mfa/confirm', session.accessToken, { method: 'POST', body: JSON.stringify({ code: mfaConfirmCode }) }); setMfaSetup(null); setMfaConfirmCode(''); setNotice('Authenticator MFA enabled. Generate recovery codes before signing out.'); await loadMfaStatus(session); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not confirm MFA.'); }
+  }
+  async function generateMfaRecoveryCodes(event: FormEvent) {
+    event.preventDefault(); if (!session) return;
+    try { const result = await call<{ recoveryCodes: string[]; remaining: number }>('/auth/mfa/recovery-codes', session.accessToken, { method: 'POST', body: JSON.stringify({ password: mfaPassword, code: mfaConfirmCode }) }); setMfaRecoveryCodes(result.recoveryCodes); setMfaPassword(''); setMfaConfirmCode(''); setRecoveryRemaining(result.remaining); setNotice('New recovery codes generated. Save them now; they are shown only once.'); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not generate recovery codes.'); }
+  }
+  async function disableMfa(event: FormEvent) {
+    event.preventDefault(); if (!session) return;
+    try { await call('/auth/mfa/disable', session.accessToken, { method: 'POST', body: JSON.stringify({ password: mfaPassword, code: mfaConfirmCode }) }); setMfaPassword(''); setMfaConfirmCode(''); setMfaRecoveryCodes([]); setMfaSetup(null); setNotice('MFA disabled and existing refresh sessions revoked. Other devices must sign in again.'); await loadMfaStatus(session); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not disable MFA.'); }
   }
 
   async function createAsset(event: FormEvent) {
@@ -308,8 +354,15 @@ export default function App() {
       <small>Tenant-scoped access · Role-based authorization · Auditable workflows</small>
     </section>
     <section className="auth-panel"><form className="auth-card" onSubmit={authenticate}>
-      <p className="eyebrow">{mode === 'login' ? 'WELCOME BACK' : 'GET STARTED'}</p><h2>{mode === 'login' ? 'Sign in to PrivaOps' : 'Create your workspace'}</h2>
-      <p className="auth-description">Use your organization account to continue to the privacy operations console.</p>
+      <p className="eyebrow">{mfaChallenge ? 'SECOND FACTOR REQUIRED' : mode === 'login' ? 'WELCOME BACK' : 'GET STARTED'}</p><h2>{mfaChallenge ? 'Verify your identity' : mode === 'login' ? 'Sign in to PrivaOps' : 'Create your workspace'}</h2>
+      <p className="auth-description">{mfaChallenge ? 'Enter your authenticator code or an unused recovery code.' : 'Use your organization account to continue to the privacy operations console.'}</p>
+      {mfaChallenge ? <form className="auth-card" onSubmit={verifyMfaLogin}>
+        <label>{mfaRecoveryMode ? 'Recovery code' : 'Authenticator code'}<input autoFocus required autoComplete="one-time-code" inputMode={mfaRecoveryMode ? 'text' : 'numeric'} maxLength={mfaRecoveryMode ? 40 : 6} value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} placeholder={mfaRecoveryMode ? 'Unused recovery code' : '000000'} /></label>
+        {error && <p className="alert error" role="alert">{error}</p>}
+        <button className="primary full" disabled={authBusy || !mfaCode.trim()}>{authBusy ? 'Verifying…' : 'Verify and continue'}</button>
+        <p className="switch-auth"><button type="button" className="link-button" onClick={() => { setMfaRecoveryMode(!mfaRecoveryMode); setMfaCode(''); setError(''); }}>{mfaRecoveryMode ? 'Use authenticator app' : 'Use a recovery code'}</button></p>
+        <p className="switch-auth"><button type="button" className="link-button" onClick={() => { setMfaChallenge(''); setMfaCode(''); setError(''); }}>Cancel and return to sign in</button></p>
+      </form> : <>
       {mode === 'register' && <label>Full name<input autoComplete="name" required minLength={2} value={auth.fullName} onChange={(e) => setAuth({ ...auth, fullName: e.target.value })} /></label>}
       <label>Email address<input type="email" autoComplete="email" required value={auth.email} onChange={(e) => setAuth({ ...auth, email: e.target.value })} /></label>
       <label>Password<input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required minLength={mode === 'register' ? 12 : 1} value={auth.password} onChange={(e) => setAuth({ ...auth, password: e.target.value })} />{mode === 'register' && <small>Use at least 12 characters.</small>}</label>
@@ -331,13 +384,14 @@ export default function App() {
         <button className={tab === 'processing' ? 'selected' : ''} onClick={() => setTab('processing')}><span>◈</span> Processing register</button>
         <button className={tab === 'requests' ? 'selected' : ''} onClick={() => setTab('requests')}><span>◎</span> Privacy requests</button>
         {canManage && <button className={tab === 'activity' ? 'selected' : ''} onClick={() => setTab('activity')}><span>⌁</span> Audit activity</button>}
+        <button className={tab === 'security' ? 'selected' : ''} onClick={() => setTab('security')}><span>◇</span> Security settings</button>
       </nav>
       <div className="sidebar-bottom"><div className="security-note"><span>●</span><div><strong>Protected workspace</strong><small>Organization-scoped session</small></div></div><button className="signout" onClick={() => void signOut()}>↗ Sign out</button></div>
     </aside>
 
     <section className="main-panel">
       <header className="page-header">
-        <div><p className="eyebrow">PRIVAOPS / {tab.toUpperCase()}</p><h1>{tab === 'overview' ? 'Operational overview' : tab === 'assets' ? 'Data inventory' : tab === 'processing' ? 'Processing register' : tab === 'requests' ? 'Privacy request queue' : 'Audit activity'}</h1></div>
+        <div><p className="eyebrow">PRIVAOPS / {tab.toUpperCase()}</p><h1>{tab === 'overview' ? 'Operational overview' : tab === 'assets' ? 'Data inventory' : tab === 'processing' ? 'Processing register' : tab === 'requests' ? 'Privacy request queue' : tab === 'activity' ? 'Audit activity' : 'Security settings'}</h1></div>
         <div className="profile"><span>{session.user.fullName.slice(0, 1).toUpperCase()}</span><div><strong>{session.user.fullName}</strong><small>{session.user.email}</small></div><span className="role-chip">{session.organization.role}</span></div>
       </header>
 
@@ -420,6 +474,43 @@ export default function App() {
           <div className="request-main"><span className="request-type">{label(item.requestType)}</span><strong>{item.description || 'No description provided'}</strong><small>Created {dateLabel(item.createdAt)}{item.dueAt ? ' · Due ' + dateLabel(item.dueAt) : ' · Due date not set'}</small></div>
           <div className="request-meta"><span className={'tag state-' + item.status}>{label(item.status)}</span>{item.dueAt && new Date(item.dueAt).getTime() < Date.now() && !terminalStatuses.includes(item.status) && <span className="warning-text">Overdue</span>}<button className="text-action" onClick={() => void inspectRequest(item)}>Details →</button></div>
         </article>)}</div>}
+      </section>}
+
+
+      {tab === 'security' && <section className="security-grid">
+        <article className="panel security-card">
+          <div className="panel-heading"><div><p className="eyebrow">ACCOUNT PROTECTION</p><h3>Authenticator MFA</h3></div><span className={'tag ' + (mfaEnabled ? 'active' : 'internal')}>{mfaEnabled ? 'Enabled' : 'Not enabled'}</span></div>
+          <p className="security-copy">Add a time-based authenticator as a second factor for future sign-ins. Setup secrets are encrypted before storage.</p>
+          {!mfaEnabled && !mfaSetup && <button className="primary" onClick={() => void startMfaSetup()}>＋ Set up authenticator</button>}
+          {mfaSetup && <form className="inline-form security-form" onSubmit={confirmMfaSetup}>
+            <p className="wide security-copy">Add this secret manually in your authenticator app, then enter its current six-digit code.</p>
+            <label className="wide">Setup secret<input readOnly value={mfaSetup.secret} onFocus={(e) => e.currentTarget.select()} /></label>
+            <label className="wide">Provisioning URI<input readOnly value={mfaSetup.otpauthUri} onFocus={(e) => e.currentTarget.select()} /></label>
+            <label className="wide">Authenticator code<input required inputMode="numeric" maxLength={6} pattern="[0-9]{6}" value={mfaConfirmCode} onChange={(e) => setMfaConfirmCode(e.target.value)} placeholder="000000" /></label>
+            <div className="form-actions"><button type="button" className="secondary" onClick={() => setMfaSetup(null)}>Cancel setup</button><button className="primary">Confirm and enable</button></div>
+          </form>}
+          {mfaEnabled && <div className="security-status"><span>✓</span><div><strong>Authenticator verification is active</strong><small>Sign-ins require an authenticator or unused recovery code.</small></div></div>}
+        </article>
+        {mfaEnabled && <article className="panel security-card">
+          <div className="panel-heading"><div><p className="eyebrow">ACCOUNT RECOVERY</p><h3>Recovery codes</h3></div><span className="count">{recoveryRemaining} remaining</span></div>
+          <p className="security-copy">Each code works once. Generating a new set invalidates all previously issued recovery codes.</p>
+          <form className="inline-form security-form" onSubmit={generateMfaRecoveryCodes}>
+            <label>Current password<input required type="password" autoComplete="current-password" value={mfaPassword} onChange={(e) => setMfaPassword(e.target.value)} /></label>
+            <label>Authenticator code<input required inputMode="numeric" maxLength={6} pattern="[0-9]{6}" value={mfaConfirmCode} onChange={(e) => setMfaConfirmCode(e.target.value)} placeholder="000000" /></label>
+            <div className="form-actions"><button className="primary">Generate new recovery codes</button></div>
+          </form>
+          {mfaRecoveryCodes.length > 0 && <div className="recovery-output"><div><strong>Save these codes now</strong><small>They will not be shown again after leaving this screen.</small></div><div className="recovery-code-list">{mfaRecoveryCodes.map((code) => <code key={code}>{code}</code>)}</div><button className="secondary" onClick={() => { void navigator.clipboard?.writeText(mfaRecoveryCodes.join('\n')); setNotice('Recovery codes copied. Store them securely.'); }}>Copy all codes</button></div>}
+        </article>}
+        {mfaEnabled && <article className="panel security-card">
+          <p className="eyebrow">HIGH-IMPACT ACTION</p><h3>Disable authenticator MFA</h3>
+          <p className="security-copy">Disabling MFA removes recovery codes and revokes all refresh sessions. Other devices must sign in again.</p>
+          <form className="inline-form security-form" onSubmit={disableMfa}>
+            <label>Current password<input required type="password" autoComplete="current-password" value={mfaPassword} onChange={(e) => setMfaPassword(e.target.value)} /></label>
+            <label>Authenticator code<input required inputMode="numeric" maxLength={6} pattern="[0-9]{6}" value={mfaConfirmCode} onChange={(e) => setMfaConfirmCode(e.target.value)} placeholder="000000" /></label>
+            <div className="form-actions"><button className="secondary">Disable MFA</button></div>
+          </form>
+        </article>}
+        <p className="footnote wide">Store recovery codes offline in a secure password manager. They are not emailed or displayed again. MFA reduces account takeover risk but is not a guarantee against every attack.</p>
       </section>}
 
       {tab === 'activity' && canManage && <section className="panel">
