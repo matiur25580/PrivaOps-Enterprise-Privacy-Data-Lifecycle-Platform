@@ -8,7 +8,8 @@ You are presenting a fictional organization, **Northstar Commerce**, that needs 
 
 ### 1. Establish the workspace (45 seconds)
 
-- Register a workspace named Northstar Commerce with a fictional operator identity.\n- Verify the address using the one-time email link before signing in. In local development, the API prints the link in its console; deployed environments require the configured transactional email provider.
+- Register a workspace named Northstar Commerce with a fictional operator identity.
+- Verify the address using the one-time email link before signing in. In local development, the API prints the link in its console; deployed environments require the configured transactional email provider.
 - Point out that the API returns an organization context and the UI uses the server-returned organization name and role.
 - Explain that organization IDs in URLs do not grant access: the API validates the JWT, active membership, and requested organization scope.
 
