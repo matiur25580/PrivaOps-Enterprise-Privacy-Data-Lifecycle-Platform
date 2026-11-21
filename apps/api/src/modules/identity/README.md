@@ -6,7 +6,11 @@ All endpoints are mounted below `/api/v1`.
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| POST | `/auth/register` | Create a pending account and send a verification email |\n| POST | `/auth/email/verify` | Verify an expiring, one-time email token |\n| POST | `/auth/email/verification/resend` | Resend verification link with a generic response |\n| POST | `/auth/password/forgot` | Request a password reset link without account enumeration |\n| POST | `/auth/password/reset` | Change password and revoke refresh sessions |
+| POST | `/auth/register` | Create a pending account and send a verification email |
+| POST | `/auth/email/verify` | Verify an expiring, one-time email token |
+| POST | `/auth/email/verification/resend` | Resend verification link with a generic response |
+| POST | `/auth/password/forgot` | Request a password reset link without account enumeration |
+| POST | `/auth/password/reset` | Change password and revoke refresh sessions |
 | POST | `/auth/email/verify` | Verify an expiring, one-time email token |
 | POST | `/auth/email/verification/resend` | Resend verification link with a generic response |
 | POST | `/auth/password/forgot` | Request a reset link without account enumeration |
@@ -29,7 +33,10 @@ All endpoints are mounted below `/api/v1`.
 - Passwords are hashed with Argon2id; plaintext passwords are never persisted.
 - New registrations remain pending until their email is verified. Existing user records without the flag remain compatible.
 - Verification and password-reset links use 256-bit random tokens; only SHA-256 hashes are stored. Tokens expire after 30 minutes and are consumed once.
-- Password reset revokes every refresh session. Forgot-password and resend-verification responses do not disclose whether an email is registered.\n- New registrations remain pending until the email address is verified. Existing user records without the flag remain compatible.\n- Verification and password-reset tokens are 256-bit random values; only SHA-256 hashes are stored. Tokens expire after 30 minutes and are consumed once.\n- Password reset revokes all refresh sessions. Forgot-password and resend-verification responses do not reveal whether an email is registered.
+- Password reset revokes every refresh session. Forgot-password and resend-verification responses do not disclose whether an email is registered.
+- New registrations remain pending until the email address is verified. Existing user records without the flag remain compatible.
+- Verification and password-reset tokens are 256-bit random values; only SHA-256 hashes are stored. Tokens expire after 30 minutes and are consumed once.
+- Password reset revokes all refresh sessions. Forgot-password and resend-verification responses do not reveal whether an email is registered.
 - Access tokens are short-lived signed JWTs (15 minutes by default).
 - Refresh tokens are random opaque values. Only SHA-256 hashes are stored in MongoDB.
 - Refresh tokens are delivered in an HttpOnly cookie scoped to the auth path. Development uses SameSite=Lax; production uses Secure + SameSite=None for separately hosted browser/API origins. Prefer same-site custom domains and verify browser third-party-cookie behavior.
