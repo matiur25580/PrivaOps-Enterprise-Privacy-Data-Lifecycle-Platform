@@ -2,9 +2,15 @@
   "name": "privaops",
   "version": "0.1.0",
   "private": true,
-  "description": "Enterprise privacy and data lifecycle operations platform",
-  "workspaces": ["apps/*", "packages/*"],
-  "engines": { "node": ">=22.0.0", "npm": ">=10.0.0" },
+  "description": "Enterprise privacy and data lifecycle operations platform built with Next.js",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=22.0.0",
+    "npm": ">=10.0.0"
+  },
   "scripts": {
     "dev": "concurrently -k -n web,api -c blue,green \"npm run dev --workspace @privaops/web\" \"npm run dev --workspace @privaops/api\"",
     "build": "npm run build --workspaces --if-present",
