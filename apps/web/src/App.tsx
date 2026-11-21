@@ -27,7 +27,7 @@ type AuditItem = {
 type RequestEvent = { _id: string; action: string; changedFields: string[]; createdAt: string; actorId?: string };
 type Member = { user: { id: string; fullName: string; email: string }; role: string };
 
-const API = (import.meta.env.VITE_API_URL || 'http://localhost:4000/api/v1').replace(/\/$/, '');
+const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1').replace(/\/$/, '');
 let activeAccessToken: string | undefined;
 let refreshInFlight: Promise<string | undefined> | undefined;
 
