@@ -1,90 +1,16 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-
-type User = { id: string; fullName: string; email: string };
-type Org = { id: string; name: string; slug?: string; role: string };
-type Session = { user: User; organization: Org; accessToken: string };
-type MfaSetup = { secret: string; otpauthUri: string; instructions: string };
-type Asset = {
-  _id: string; name: string; description?: string; system: string; ownerTeam: string;
-  classification: string; dataCategories?: string[]; dataSubjects?: string[]; status: string;
-  updatedAt?: string;
-};
-type Activity = {
-  _id: string; name: string; purpose: string; legalBasis: string; dataCategories: string[];
-  dataSubjects: string[]; systems: string[]; assetIds: string[]; retentionPeriodDays: number | null;
-  status: string; updatedAt?: string;
-};
-type RequestItem = {
-  _id: string; requestType: string; description: string; status: string; createdAt: string;
-  dueAt?: string | null; identityVerificationStatus?: string; resolutionSummary?: string;
-  rejectionReason?: string; assignedTo?: string | null;
-};
-type AuditItem = {
-  _id: string; action: string; resourceType: string; resourceId: string;
-  changedFields: string[]; createdAt: string;
-  actorId?: { fullName?: string; email?: string } | string;
-};
-type RequestEvent = { _id: string; action: string; changedFields: string[]; createdAt: string; actorId?: string };
-type Member = { user: { id: string; fullName: string; email: string }; role: string };
-
-const API = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1').replace(/\/$/, '');
-let activeAccessToken: string | undefined;
-let refreshInFlight: Promise<string | undefined> | undefined;
-
-async function refreshAccessToken(): Promise<string | undefined> {
-  if (!refreshInFlight) {
-    refreshInFlight = fetch(API + '/auth/refresh', { method: 'POST', credentials: 'include' })
-      .then(async (response) => {
-        if (!response.ok) return undefined;
-        const body = await response.json() as { data?: { accessToken?: string } };
-        activeAccessToken = body.data?.accessToken;
-        return activeAccessToken;
-      })
-      .catch(() => undefined)
-      .finally(() => { refreshInFlight = undefined; });
-  }
-  return refreshInFlight;
-}
-
-async function call<T>(path: string, token?: string, init: RequestInit = {}, retry = true): Promise<T> {
-  const headers = new Headers(init.headers);
-  if (init.body) headers.set('Content-Type', 'application/json');
-  const currentToken = activeAccessToken || token;
-  if (currentToken) headers.set('Authorization', 'Bearer ' + currentToken);
-  const response = await fetch(API + path, { ...init, headers, credentials: 'include' });
-  if (response.status === 401 && retry && !path.startsWith('/auth/')) {
-    const nextToken = await refreshAccessToken();
-    if (nextToken) return call<T>(path, nextToken, init, false);
-  }
-  if (response.status === 204) return undefined as T;
-  const body = await response.json().catch(() => ({})) as { data?: T; error?: { message?: string } };
-  if (!response.ok) throw new Error(body.error?.message || 'Request failed (' + response.status + ')');
-  return body.data as T;
-}
-
-function csvDownload(filename: string, rows: Array<Record<string, unknown>>) {
-  if (!rows.length) return;
-  const columns = Array.from(new Set(rows.flatMap((row) => Object.keys(row))));
-  const quote = (value: unknown) => '"' + String(value ?? '').replace(/"/g, '""') + '"';
-  const csv = [columns.map(quote).join(','), ...rows.map((row) => columns.map((key) => quote(row[key])).join(','))].join('\r\n');
-  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url; anchor.download = filename; anchor.click();
-  URL.revokeObjectURL(url);
-}
-
-const terminalStatuses = ['fulfilled', 'rejected', 'withdrawn', 'closed'];
-const statusTransitions: Record<string, string[]> = {
-  submitted: ['identity_verification', 'in_progress', 'withdrawn'],
-  identity_verification: ['in_progress', 'awaiting_information', 'rejected', 'withdrawn'],
-  in_progress: ['awaiting_information', 'fulfilled', 'rejected', 'withdrawn'],
-  awaiting_information: ['in_progress', 'fulfilled', 'rejected', 'withdrawn'],
-  fulfilled: ['closed'], rejected: ['closed'], withdrawn: ['closed'], closed: [],
-};
-const label = (value: string) => value.replaceAll('_', ' ');
-const dateLabel = (value?: string | null) => value ? new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set';
+import { call, refreshAccessToken, setAccessToken } from './lib/api-client';
+import { csvDownload } from './lib/csv';
+import { dateLabel, label } from './lib/format';
+import { terminalStatuses, statusTransitions } from './features/requests/domain';
+import type { User, Org, Session } from './features/auth/types';
+import type { MfaSetup } from './features/security/types';
+import type { Asset } from './features/inventory/types';
+import type { Activity } from './features/processing/types';
+import type { RequestItem, RequestEvent } from './features/requests/types';
+import type { AuditItem } from './features/audit/types';
+import type { Member } from './features/organization/types';
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -214,7 +140,7 @@ export default function App() {
       const result = await call<{ mfaRequired?: boolean; challengeToken?: string; accessToken?: string; user?: User; organization?: Org }>(path, undefined, { method: 'POST', body: JSON.stringify(payload) });
       if (result.mfaRequired && result.challengeToken) { setMfaChallenge(result.challengeToken); setMfaCode(''); setMfaRecoveryMode(false); setNotice('Password verified. Complete the second authentication step.'); return; }
       if (!result.accessToken || !result.organization || !result.user) throw new Error('The authentication response was incomplete.');
-      activeAccessToken = result.accessToken;
+      setAccessToken(result.accessToken);
       const context = await call<{ organization: { id: string; name: string; slug: string }; membership: { role: string } }>(
         '/organizations/' + encodeURIComponent(result.organization.id) + '/context', result.accessToken,
       );
@@ -226,7 +152,7 @@ export default function App() {
 
   async function signOut() {
     try { await call('/auth/logout', session?.accessToken, { method: 'POST' }); } catch { /* local sign-out must still complete */ }
-    activeAccessToken = undefined;
+    setAccessToken(undefined);
     setSession(null); setAssets([]); setActivities([]); setRequests([]); setAudit([]); setMembers([]);
     setNotice('You have signed out.');
   }
@@ -236,7 +162,7 @@ export default function App() {
     event.preventDefault(); if (!mfaChallenge) return; setError(''); setAuthBusy(true);
     try {
       const result = await call<{ accessToken: string; user: User; organization: Org }>('/auth/mfa/verify-login', undefined, { method: 'POST', body: JSON.stringify({ challengeToken: mfaChallenge, ...(mfaRecoveryMode ? { recoveryCode: mfaCode } : { code: mfaCode }) }) });
-      activeAccessToken = result.accessToken;
+      setAccessToken(result.accessToken);
       const context = await call<{ organization: { id: string; name: string; slug: string }; membership: { role: string } }>('/organizations/' + encodeURIComponent(result.organization.id) + '/context', result.accessToken);
       setSession({ user: result.user, organization: { ...context.organization, role: context.membership.role }, accessToken: result.accessToken });
       setMfaChallenge(''); setMfaCode(''); setNotice('Multi-factor authentication complete.');
