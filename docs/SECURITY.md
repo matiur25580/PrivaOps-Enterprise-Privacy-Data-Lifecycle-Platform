@@ -27,7 +27,7 @@ This document describes the current engineering controls and the remaining work.
 ## Important residual risks
 
 1. **Account lifecycle:** email verification, password recovery, MFA, invitations, and account lockout policy are not implemented.
-2. **Cookie/CSRF posture:** review SameSite and Secure cookie behavior for the final frontend/API domain topology. Add explicit CSRF protections or a documented origin-bound strategy before relying on cross-site cookie flows.
+2. **Cookie/CSRF posture:** cookie-authenticated registration, login, refresh, and logout require an exact match with the configured WEB_ORIGIN. Production refresh cookies use Secure + SameSite=None so a separately hosted browser app can send them. Verify the exact deployed origin, HTTPS, browser third-party-cookie behavior, and the final domain topology; prefer same-site custom domains where possible.
 3. **Access-token revocation:** access tokens are short-lived; refresh-session logout does not instantly revoke an already-issued access token. Membership and account state are reloaded, but session-level revocation is not checked on every request.
 4. **Registration/session semantics:** review registration response and cookie behavior, organization selection, and duplicate-registration race handling.
 5. **Audit integrity:** the current append-oriented event collection is not immutable. Database administrators can alter it; independent retention, integrity verification, and privileged access monitoring are needed.
