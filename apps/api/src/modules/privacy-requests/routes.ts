@@ -5,7 +5,7 @@ import { authenticate, requireOrganizationScope, requirePermission } from '../id
 import { hasPermission } from '../identity/types.js';
 import { Membership } from '../identity/models.js';
 import { PrivacyRequest, PrivacyRequestEvent, type PrivacyRequestStatus } from './models.js';
-import { canFulfillPrivacyRequest, canTransitionPrivacyRequestStatus } from './workflow.js';
+import { canActorFulfillPrivacyRequest, canTransitionPrivacyRequestStatus } from './workflow.js';
 import { organizationRequestFilter, ownPrivacyRequestFilter } from './scope.js';
 
 export const privacyRequestRouter = Router();
@@ -229,8 +229,18 @@ privacyRequestRouter.patch(
       return;
     }
     const identityStatus = parsed.data.identityVerificationStatus ?? current.identityVerificationStatus;
-    if (parsed.data.status === 'fulfilled' && !canFulfillPrivacyRequest(identityStatus)) {
-      response.status(409).json({ error: { code: 'IDENTITY_VERIFICATION_REQUIRED', message: 'Verify the requester\'s identity before fulfilling this request.' } });
+    if (parsed.data.status === 'fulfilled' && !canActorFulfillPrivacyRequest(
+      identityStatus,
+      String(current.requestedBy),
+      request.auth!.userId,
+    )) {
+      const isRequester = String(current.requestedBy) === request.auth!.userId;
+      response.status(403).json({ error: {
+        code: isRequester ? 'SEPARATION_OF_DUTIES_REQUIRED' : 'IDENTITY_VERIFICATION_REQUIRED',
+        message: isRequester
+          ? 'A requester cannot fulfill their own privacy request. Assign an independent authorized reviewer.'
+          : 'Verify the requester\'s identity before fulfilling this request.',
+      } });
       return;
     }
     if (parsed.data.status === 'fulfilled' && !(parsed.data.resolutionSummary ?? current.resolutionSummary).trim()) {

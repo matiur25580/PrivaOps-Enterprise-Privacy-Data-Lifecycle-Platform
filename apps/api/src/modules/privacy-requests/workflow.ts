@@ -23,3 +23,11 @@ export function canTransitionPrivacyRequestStatus(
 export function canFulfillPrivacyRequest(identityStatus: IdentityVerificationStatus): boolean {
   return identityStatus === 'verified';
 }
+
+export function canActorFulfillPrivacyRequest(
+  identityStatus: IdentityVerificationStatus,
+  requestedBy: string,
+  actorId: string,
+): boolean {
+  return requestedBy !== actorId && canFulfillPrivacyRequest(identityStatus);
+}
