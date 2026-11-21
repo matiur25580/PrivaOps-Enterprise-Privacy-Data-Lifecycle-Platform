@@ -9,6 +9,7 @@ You are presenting a fictional organization, **Northstar Commerce**, that needs 
 ### 1. Establish the workspace (45 seconds)
 
 - Register a workspace named Northstar Commerce with a fictional operator identity.
+- Verify the address using the one-time email link before signing in. In local development, the API prints the link in its console; deployed environments require the configured transactional email provider.
 - Point out that the API returns an organization context and the UI uses the server-returned organization name and role.
 - Explain that organization IDs in URLs do not grant access: the API validates the JWT, active membership, and requested organization scope.
 
@@ -72,6 +73,6 @@ Be ready to explain:
 
 ## Honest limitations to disclose
 
-The current milestone does not implement email verification, MFA, password recovery, invitations, consent lifecycle, automated retention execution, incident response, vendor risk, DPIA workflows, notifications, background jobs, or independently tamper-resistant audit evidence. Production use requires threat review, CSRF/cookie review, integration and end-to-end tests, dependency review, backups, monitoring, and legal/privacy review.
+The current milestone implements email verification, password recovery, TOTP MFA, and one-time recovery codes. It does not implement invitations, consent lifecycle, automated retention execution, incident response, vendor risk, DPIA workflows, notifications, background jobs, or independently tamper-resistant audit evidence. Production use requires threat review, CSRF/cookie review, integration and end-to-end tests, dependency review, backups, monitoring, and legal/privacy review.
 
 A strong interview answer distinguishes implemented controls from roadmap items and explains why a privacy platform must not claim compliance simply because it stores a legal-basis label.

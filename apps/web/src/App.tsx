@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 type User = { id: string; fullName: string; email: string };
 type Org = { id: string; name: string; slug?: string; role: string };
@@ -108,6 +108,12 @@ export default function App() {
   const [mfaConfirmCode, setMfaConfirmCode] = useState('');
   const [mfaPassword, setMfaPassword] = useState('');
   const [mfaRecoveryCodes, setMfaRecoveryCodes] = useState<string[]>([]);
+  const [emailFlow, setEmailFlow] = useState<'default' | 'forgot' | 'reset' | 'verifyPending' | 'verifying'>('default');
+  const [actionToken, setActionToken] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailDeliveryPending, setEmailDeliveryPending] = useState(false);
+  const actionHandled = useRef(false);
   const [assetFormOpen, setAssetFormOpen] = useState(false);
   const [activityFormOpen, setActivityFormOpen] = useState(false);
   const [requestFormOpen, setRequestFormOpen] = useState(false);
@@ -161,6 +167,8 @@ export default function App() {
 
   useEffect(() => {
     let live = true;
+    const actionParams = new URLSearchParams(window.location.search);
+    if (actionParams.has('verifyEmail') || actionParams.has('resetPassword')) { setBooting(false); return () => { live = false; }; }
     void refreshAccessToken().then(async (token) => {
       if (!token) return;
       const me = await call<{ user: User; organization: Org }>('/auth/me', token);
@@ -173,6 +181,25 @@ export default function App() {
   }, []);
 
   useEffect(() => { if (session) void load(session, query); }, [session, load]);
+
+  useEffect(() => {
+    if (actionHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const verifyToken = params.get('verifyEmail');
+    const resetToken = params.get('resetPassword');
+    if (verifyToken) {
+      actionHandled.current = true;
+      setEmailFlow('verifying');
+      void call<{ verified: boolean }>('/auth/email/verify', undefined, { method: 'POST', body: JSON.stringify({ token: verifyToken }) })
+        .then(() => { setNotice('Email verified successfully. You can now sign in.'); setEmailFlow('default'); window.history.replaceState({}, '', window.location.pathname); })
+        .catch((cause) => { setError(cause instanceof Error ? cause.message : 'Email verification failed.'); setEmailFlow('default'); window.history.replaceState({}, '', window.location.pathname); });
+    } else if (resetToken) {
+      actionHandled.current = true;
+      setActionToken(resetToken);
+      setEmailFlow('reset');
+    }
+  }, []);
+
   const loadMfaStatus = useCallback(async (current: Session) => { try { const status = await call<{ enabled: boolean; recoveryCodesRemaining: number }>('/auth/mfa/status', current.accessToken); setMfaEnabled(status.enabled); setRecoveryRemaining(status.recoveryCodesRemaining); } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not load MFA status.'); } }, []);
   useEffect(() => { if (session) void loadMfaStatus(session); }, [session, loadMfaStatus]);
 
@@ -194,7 +221,8 @@ export default function App() {
       const payload = mode === 'login'
         ? { email: auth.email, password: auth.password }
         : auth;
-      const result = await call<{ mfaRequired?: boolean; challengeToken?: string; accessToken?: string; user?: User; organization?: Org }>(path, undefined, { method: 'POST', body: JSON.stringify(payload) });
+      const result = await call<{ mfaRequired?: boolean; challengeToken?: string; emailVerificationRequired?: boolean; emailDeliveryPending?: boolean; message?: string; accessToken?: string; user?: User; organization?: Org }>(path, undefined, { method: 'POST', body: JSON.stringify(payload) });
+      if (result.emailVerificationRequired) { setEmailFlow('verifyPending'); setEmailDeliveryPending(Boolean(result.emailDeliveryPending)); setNotice(result.message || 'Your account was created. Verify your email before signing in.'); return; }
       if (result.mfaRequired && result.challengeToken) { setMfaChallenge(result.challengeToken); setMfaCode(''); setMfaRecoveryMode(false); setNotice('Password verified. Complete the second authentication step.'); return; }
       if (!result.accessToken || !result.organization || !result.user) throw new Error('The authentication response was incomplete.');
       activeAccessToken = result.accessToken;
@@ -205,6 +233,42 @@ export default function App() {
       setNotice('Secure workspace session established.');
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Authentication failed.'); }
     finally { setAuthBusy(false); }
+  }
+
+
+  async function requestPasswordReset(event: FormEvent) {
+    event.preventDefault(); setEmailBusy(true); setError(''); setNotice('');
+    try {
+      const result = await call<{ message: string }>('/auth/password/forgot', undefined, { method: 'POST', body: JSON.stringify({ email: auth.email }) });
+      setNotice(result.message); setEmailFlow('default');
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not request a password reset.'); }
+    finally { setEmailBusy(false); }
+  }
+
+  async function resendVerificationNow() {
+    setEmailBusy(true); setError(''); setNotice('');
+    try {
+      const result = await call<{ message: string }>('/auth/email/verification/resend', undefined, { method: 'POST', body: JSON.stringify({ email: auth.email }) });
+      setNotice(result.message);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not resend verification email.'); }
+    finally { setEmailBusy(false); }
+  }
+
+  async function resendVerification(event: FormEvent) {
+    event.preventDefault(); setEmailBusy(true); setError(''); setNotice('');
+    try {
+      const result = await call<{ message: string }>('/auth/email/verification/resend', undefined, { method: 'POST', body: JSON.stringify({ email: auth.email }) });
+      setNotice(result.message);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not resend verification email.'); }
+    finally { setEmailBusy(false); }
+  }
+  async function submitPasswordReset(event: FormEvent) {
+    event.preventDefault(); setEmailBusy(true); setError(''); setNotice('');
+    try {
+      const result = await call<{ message: string }>('/auth/password/reset', undefined, { method: 'POST', body: JSON.stringify({ token: actionToken, password: newPassword }) });
+      setNotice(result.message); setNewPassword(''); setActionToken(''); setEmailFlow('default'); window.history.replaceState({}, '', window.location.pathname);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not reset password.'); }
+    finally { setEmailBusy(false); }
   }
 
   async function signOut() {
@@ -356,7 +420,30 @@ export default function App() {
     <section className="auth-panel"><div className="auth-card">
       <p className="eyebrow">{mfaChallenge ? 'SECOND FACTOR REQUIRED' : mode === 'login' ? 'WELCOME BACK' : 'GET STARTED'}</p><h2>{mfaChallenge ? 'Verify your identity' : mode === 'login' ? 'Sign in to PrivaOps' : 'Create your workspace'}</h2>
       <p className="auth-description">{mfaChallenge ? 'Enter your authenticator code or an unused recovery code.' : 'Use your organization account to continue to the privacy operations console.'}</p>
-      {mfaChallenge ? <form className="auth-card" onSubmit={verifyMfaLogin}>
+      {notice && <p className="alert success" role="status">{notice}</p>}
+      {emailFlow === 'verifying' ? <div className="auth-flow-card"><p>Verifying your email link…</p></div>
+      : emailFlow === 'verifyPending' ? <form className="auth-flow-card" onSubmit={resendVerification}>
+        <h3>{emailDeliveryPending ? 'Email delivery needs attention' : 'Check your inbox'}</h3><p>{emailDeliveryPending ? 'Your account is saved but remains inactive. An administrator must configure transactional email before a verification link can be delivered.' : <>We sent a verification link to <strong>{auth.email}</strong>. Verify your address before signing in. The link expires in 30 minutes.</>}</p>
+        <label>Email address<input type="email" required value={auth.email} onChange={(e) => setAuth({ ...auth, email: e.target.value })} /></label>
+        {error && <p className="alert error" role="alert">{error}</p>}
+        <button className="primary full" disabled={emailBusy}>{emailBusy ? 'Sending…' : 'Resend verification email'}</button>
+        <p className="switch-auth"><button type="button" className="link-button" onClick={() => { setEmailFlow('default'); setMode('login'); setError(''); }}>Back to sign in</button></p>
+      </form>
+      : emailFlow === 'forgot' ? <form className="auth-flow-card" onSubmit={requestPasswordReset}>
+        <h3>Reset your password</h3><p>Enter your account email. If an active account exists, we will send a one-time reset link.</p>
+        <label>Email address<input type="email" required value={auth.email} onChange={(e) => setAuth({ ...auth, email: e.target.value })} /></label>
+        {error && <p className="alert error" role="alert">{error}</p>}
+        <button className="primary full" disabled={emailBusy}>{emailBusy ? 'Sending…' : 'Send reset link'}</button>
+        <p className="switch-auth"><button type="button" className="link-button" onClick={() => { setEmailFlow('default'); setError(''); }}>Back to sign in</button></p>
+      </form>
+      : emailFlow === 'reset' ? <form className="auth-flow-card" onSubmit={submitPasswordReset}>
+        <h3>Choose a new password</h3><p>Use at least 12 characters. This reset link can only be used once.</p>
+        <label>New password<input type="password" required minLength={12} maxLength={128} autoComplete="new-password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} /></label>
+        {error && <p className="alert error" role="alert">{error}</p>}
+        <button className="primary full" disabled={emailBusy}>{emailBusy ? 'Updating…' : 'Update password'}</button>
+        <p className="switch-auth"><button type="button" className="link-button" onClick={() => { setEmailFlow('default'); setActionToken(''); window.history.replaceState({}, '', window.location.pathname); }}>Cancel</button></p>
+      </form>
+      : mfaChallenge ? <form className="auth-card" onSubmit={verifyMfaLogin}>
         <label>{mfaRecoveryMode ? 'Recovery code' : 'Authenticator code'}<input autoFocus required autoComplete="one-time-code" inputMode={mfaRecoveryMode ? 'text' : 'numeric'} maxLength={mfaRecoveryMode ? 32 : 6} value={mfaCode} onChange={(e) => setMfaCode(e.target.value)} pattern={mfaRecoveryMode ? '[A-Fa-f0-9]{32}' : '[0-9]{6}'} placeholder={mfaRecoveryMode ? '32-character recovery code' : '000000'} /></label>
         {error && <p className="alert error" role="alert">{error}</p>}
         <button className="primary full" disabled={authBusy || !mfaCode.trim()}>{authBusy ? 'Verifying…' : 'Verify and continue'}</button>
@@ -369,7 +456,9 @@ export default function App() {
       <label>Password<input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required minLength={mode === 'register' ? 12 : 1} value={auth.password} onChange={(e) => setAuth({ ...auth, password: e.target.value })} />{mode === 'register' && <small>Use at least 12 characters.</small>}</label>
       {mode === 'register' && <label>Organization name<input required minLength={2} value={auth.organizationName} onChange={(e) => setAuth({ ...auth, organizationName: e.target.value })} /></label>}
       {error && <p className="alert error" role="alert">{error}</p>}
+      {error.includes('Verify your email address') && <button type="button" className="link-button" disabled={emailBusy} onClick={() => void resendVerificationNow()}>{emailBusy ? 'Sending…' : 'Resend verification email'}</button>}
       <button className="primary full" disabled={authBusy}>{authBusy ? 'Please wait…' : mode === 'login' ? 'Sign in securely' : 'Create workspace'}</button>
+      {mode === 'login' && <p className="switch-auth"><button type="button" className="link-button" onClick={() => { setEmailFlow('forgot'); setError(''); setNotice(''); }}>Forgot password?</button></p>}
       <p className="switch-auth">{mode === 'login' ? 'New to PrivaOps?' : 'Already registered?'} <button type="button" className="link-button" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>{mode === 'login' ? 'Create an account' : 'Sign in'}</button></p>
     </form></>}</div></section>
   </main>;

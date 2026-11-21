@@ -8,6 +8,7 @@ interface UserRecord {
   totpSecretEncrypted?: string;
   totpPendingSecretEncrypted?: string;
   recoveryCodeHashes: string[];
+  emailVerified: boolean;
   status: 'active' | 'suspended';
 }
 interface OrganizationRecord {
@@ -29,6 +30,13 @@ interface MfaChallengeRecord {
   organizationId: Types.ObjectId;
   expiresAt: Date;
 }
+interface EmailActionTokenRecord {
+  userId: Types.ObjectId;
+  purpose: 'email_verification' | 'password_reset';
+  tokenHash: string;
+  expiresAt: Date;
+  consumedAt?: Date;
+}
 interface RefreshSessionRecord {
   userId: Types.ObjectId;
   organizationId: Types.ObjectId;
@@ -45,6 +53,7 @@ const userSchema = new Schema({
   totpSecretEncrypted: { type: String, select: false },
   totpPendingSecretEncrypted: { type: String, select: false },
   recoveryCodeHashes: { type: [String], default: [], select: false },
+  emailVerified: { type: Boolean, default: true },
   status: { type: String, enum: ['active', 'suspended'], default: 'active', index: true },
 }, { timestamps: true });
 
@@ -69,6 +78,14 @@ const mfaChallengeSchema = new Schema({
   expiresAt: { type: Date, required: true, expires: 0 },
 }, { timestamps: true });
 
+const emailActionTokenSchema = new Schema({
+  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  purpose: { type: String, enum: ['email_verification', 'password_reset'], required: true, index: true },
+  tokenHash: { type: String, required: true, unique: true, select: false },
+  expiresAt: { type: Date, required: true, expires: 0 },
+  consumedAt: { type: Date },
+}, { timestamps: true });
+
 const refreshSessionSchema = new Schema({
   userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   organizationId: { type: Schema.Types.ObjectId, ref: 'Organization', required: true, index: true },
@@ -84,3 +101,5 @@ export const Membership: Model<MembershipRecord> = (models.Membership as Model<M
 export const RefreshSession: Model<RefreshSessionRecord> = (models.RefreshSession as Model<RefreshSessionRecord> | undefined) ?? model<RefreshSessionRecord>('RefreshSession', refreshSessionSchema);
 
 export const MfaChallenge: Model<MfaChallengeRecord> = (models.MfaChallenge as Model<MfaChallengeRecord> | undefined) ?? model<MfaChallengeRecord>('MfaChallenge', mfaChallengeSchema);
+
+export const EmailActionToken: Model<EmailActionTokenRecord> = (models.EmailActionToken as Model<EmailActionTokenRecord> | undefined) ?? model<EmailActionTokenRecord>('EmailActionToken', emailActionTokenSchema);
