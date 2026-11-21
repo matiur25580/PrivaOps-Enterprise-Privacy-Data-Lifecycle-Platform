@@ -67,7 +67,7 @@ Generate a secret locally, for example:
 openssl rand -base64 48
 \`\`\`
 
-Paste the generated value directly into the API provider's secret field. Do not put it in source control, a ticket, a screenshot, or a \`VITE_*\` variable.
+Paste the generated value directly into the API provider's secret field. Do not put it in source control, a ticket, a screenshot, or a \`NEXT_PUBLIC_*\` variable.
 
 After deployment, check:
 
@@ -87,7 +87,7 @@ Import the same repository as a Vercel project. Configure it from the **reposito
 | Root directory | Repository root |
 | Install command | \`npm install\` |
 | Build command | \`npm run build --workspace @privaops/web\` |
-| Output directory | \`apps/web/dist\` |
+| Output directory | \`Next.js managed output (no custom output directory)\` |
 | Node.js | 22.x |
 
 Set this build-time environment variable for the intended environment:
@@ -96,7 +96,7 @@ Set this build-time environment variable for the intended environment:
 NEXT_PUBLIC_API_URL=https://<api-host>/api/v1
 \`\`\`
 
-\`NEXT_PUBLIC_API_URL\` is public browser configuration. Never place MongoDB credentials, JWT signing secrets, API keys, or other secrets in a \`VITE_*\` variable.
+\`NEXT_PUBLIC_API_URL\` is public browser configuration. Never place MongoDB credentials, JWT signing secrets, API keys, or other secrets in a \`NEXT_PUBLIC_*\` variable.
 
 Redeploy/rebuild the web project after changing \`NEXT_PUBLIC_API_URL\`; Next.js embeds it into the generated browser bundle.
 
