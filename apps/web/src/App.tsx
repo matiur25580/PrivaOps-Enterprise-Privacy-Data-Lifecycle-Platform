@@ -189,7 +189,7 @@ export default function App() {
       setEmailFlow('verifying');
       void call<{ verified: boolean }>('/auth/email/verify', undefined, { method: 'POST', body: JSON.stringify({ token: verifyToken }) })
         .then(() => { setNotice('Email verified successfully. You can now sign in.'); setEmailFlow('default'); window.history.replaceState({}, '', window.location.pathname); })
-        .catch((cause) => { setError(cause instanceof Error ? cause.message : 'Email verification failed.'); setEmailFlow('default'); });
+        .catch((cause) => { setError(cause instanceof Error ? cause.message : 'Email verification failed.'); setEmailFlow('default'); window.history.replaceState({}, '', window.location.pathname); });
     } else if (resetToken) {
       actionHandled.current = true;
       setActionToken(resetToken);
@@ -241,6 +241,16 @@ export default function App() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not request a password reset.'); }
     finally { setEmailBusy(false); }
   }
+
+  async function resendVerificationNow() {
+    setEmailBusy(true); setError(''); setNotice('');
+    try {
+      const result = await call<{ message: string }>('/auth/email/verification/resend', undefined, { method: 'POST', body: JSON.stringify({ email: auth.email }) });
+      setNotice(result.message);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : 'Could not resend verification email.'); }
+    finally { setEmailBusy(false); }
+  }
+
   async function resendVerification(event: FormEvent) {
     event.preventDefault(); setEmailBusy(true); setError(''); setNotice('');
     try {
@@ -407,6 +417,7 @@ export default function App() {
     <section className="auth-panel"><div className="auth-card">
       <p className="eyebrow">{mfaChallenge ? 'SECOND FACTOR REQUIRED' : mode === 'login' ? 'WELCOME BACK' : 'GET STARTED'}</p><h2>{mfaChallenge ? 'Verify your identity' : mode === 'login' ? 'Sign in to PrivaOps' : 'Create your workspace'}</h2>
       <p className="auth-description">{mfaChallenge ? 'Enter your authenticator code or an unused recovery code.' : 'Use your organization account to continue to the privacy operations console.'}</p>
+      {notice && <p className="alert success" role="status">{notice}</p>}
       {emailFlow === 'verifying' ? <div className="auth-flow-card"><p>Verifying your email link…</p></div>
       : emailFlow === 'verifyPending' ? <form className="auth-flow-card" onSubmit={resendVerification}>
         <h3>Check your inbox</h3><p>We sent a verification link to <strong>{auth.email}</strong>. Verify your address before signing in. The link expires in 30 minutes.</p>
@@ -442,6 +453,7 @@ export default function App() {
       <label>Password<input type="password" autoComplete={mode === 'login' ? 'current-password' : 'new-password'} required minLength={mode === 'register' ? 12 : 1} value={auth.password} onChange={(e) => setAuth({ ...auth, password: e.target.value })} />{mode === 'register' && <small>Use at least 12 characters.</small>}</label>
       {mode === 'register' && <label>Organization name<input required minLength={2} value={auth.organizationName} onChange={(e) => setAuth({ ...auth, organizationName: e.target.value })} /></label>}
       {error && <p className="alert error" role="alert">{error}</p>}
+      {error.includes('Verify your email address') && <button type="button" className="link-button" disabled={emailBusy} onClick={() => void resendVerificationNow()}>{emailBusy ? 'Sending…' : 'Resend verification email'}</button>}
       <button className="primary full" disabled={authBusy}>{authBusy ? 'Please wait…' : mode === 'login' ? 'Sign in securely' : 'Create workspace'}</button>
       {mode === 'login' && <p className="switch-auth"><button type="button" className="link-button" onClick={() => { setEmailFlow('forgot'); setError(''); setNotice(''); }}>Forgot password?</button></p>}
       <p className="switch-auth">{mode === 'login' ? 'New to PrivaOps?' : 'Already registered?'} <button type="button" className="link-button" onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>{mode === 'login' ? 'Create an account' : 'Sign in'}</button></p>
