@@ -229,17 +229,34 @@ privacyRequestRouter.patch(
       return;
     }
     const identityStatus = parsed.data.identityVerificationStatus ?? current.identityVerificationStatus;
+    const identityVerifiedBy = parsed.data.identityVerificationStatus === 'verified'
+      ? request.auth!.userId
+      : parsed.data.identityVerificationStatus !== undefined
+        ? null
+        : current.identityVerifiedBy ? String(current.identityVerifiedBy) : null;
+    if (parsed.data.identityVerificationStatus === 'verified' &&
+        String(current.requestedBy) === request.auth!.userId) {
+      response.status(403).json({ error: {
+        code: 'SEPARATION_OF_DUTIES_REQUIRED',
+        message: 'A requester cannot verify their own identity. Assign an independent verifier.',
+      } });
+      return;
+    }
     if (parsed.data.status === 'fulfilled' && !canActorFulfillPrivacyRequest(
       identityStatus,
       String(current.requestedBy),
+      identityVerifiedBy,
       request.auth!.userId,
     )) {
       const isRequester = String(current.requestedBy) === request.auth!.userId;
+      const isVerifier = identityVerifiedBy === request.auth!.userId;
       response.status(403).json({ error: {
-        code: isRequester ? 'SEPARATION_OF_DUTIES_REQUIRED' : 'IDENTITY_VERIFICATION_REQUIRED',
+        code: isRequester || isVerifier ? 'SEPARATION_OF_DUTIES_REQUIRED' : 'IDENTITY_VERIFICATION_REQUIRED',
         message: isRequester
           ? 'A requester cannot fulfill their own privacy request. Assign an independent authorized reviewer.'
-          : 'Verify the requester\'s identity before fulfilling this request.',
+          : isVerifier
+            ? 'The identity verifier cannot fulfill the same privacy request. Assign an independent fulfiller.'
+            : 'Verify the requester's identity through a different authorized member before fulfillment.',
       } });
       return;
     }
@@ -273,8 +290,14 @@ privacyRequestRouter.patch(
         id.data,
         current.status,
         current.identityVerificationStatus,
+        current.identityVerifiedBy ?? null,
       ),
-      { $set: parsed.data },
+      { $set: {
+        ...parsed.data,
+        ...(parsed.data.identityVerificationStatus !== undefined
+          ? { identityVerifiedBy: identityVerifiedBy ? new Types.ObjectId(identityVerifiedBy) : null }
+          : {}),
+      } },
       { new: true, runValidators: true },
     );
     if (!updated) {
