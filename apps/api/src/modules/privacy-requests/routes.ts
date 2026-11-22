@@ -256,7 +256,7 @@ privacyRequestRouter.patch(
           ? 'A requester cannot fulfill their own privacy request. Assign an independent authorized reviewer.'
           : isVerifier
             ? 'The identity verifier cannot fulfill the same privacy request. Assign an independent fulfiller.'
-            : 'Verify the requester's identity through a different authorized member before fulfillment.',
+            : "Verify the requester's identity through a different authorized member before fulfillment.",
       } });
       return;
     }
