@@ -20,11 +20,13 @@ export function privacyRequestCompareAndSetFilter(
   requestId: unknown,
   currentStatus: string,
   currentIdentityVerificationStatus: string,
+  currentIdentityVerifiedBy: unknown = null,
 ): PrivacyRequestFilter {
   return {
     _id: requestId,
     organizationId,
     status: currentStatus,
     identityVerificationStatus: currentIdentityVerificationStatus,
+    identityVerifiedBy: currentIdentityVerifiedBy,
   };
 }
