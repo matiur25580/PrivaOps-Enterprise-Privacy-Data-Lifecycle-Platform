@@ -44,12 +44,13 @@ describe('privacy request access boundaries', () => {
 describe('privacy request compare-and-set updates', () => {
   it('matches both the current workflow and identity verification state', () => {
     expect(privacyRequestCompareAndSetFilter(
-      'tenant-a', 'request-1', 'in_progress', 'verified',
+      'tenant-a', 'request-1', 'in_progress', 'verified', 'verifier-1',
     )).toEqual({
       _id: 'request-1',
       organizationId: 'tenant-a',
       status: 'in_progress',
       identityVerificationStatus: 'verified',
+      identityVerifiedBy: 'verifier-1',
     });
   });
 });

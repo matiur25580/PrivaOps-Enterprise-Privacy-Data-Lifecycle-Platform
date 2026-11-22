@@ -27,7 +27,12 @@ export function canFulfillPrivacyRequest(identityStatus: IdentityVerificationSta
 export function canActorFulfillPrivacyRequest(
   identityStatus: IdentityVerificationStatus,
   requestedBy: string,
+  identityVerifiedBy: string | null | undefined,
   actorId: string,
 ): boolean {
-  return requestedBy !== actorId && canFulfillPrivacyRequest(identityStatus);
+  return requestedBy !== actorId &&
+    Boolean(identityVerifiedBy) &&
+    identityVerifiedBy !== requestedBy &&
+    identityVerifiedBy !== actorId &&
+    canFulfillPrivacyRequest(identityStatus);
 }
