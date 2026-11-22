@@ -27,6 +27,7 @@ interface PrivacyRequestRecord {
   description: string;
   status: PrivacyRequestStatus;
   identityVerificationStatus: 'pending' | 'verified' | 'failed';
+  identityVerifiedBy: Types.ObjectId | null;
   assignedTo: Types.ObjectId | null;
   dueAt: Date | null;
   resolutionSummary: string;
@@ -60,6 +61,7 @@ const privacyRequestSchema = new Schema({
     index: true,
   },
   identityVerificationStatus: { type: String, enum: ['pending', 'verified', 'failed'], default: 'pending' },
+  identityVerifiedBy: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   assignedTo: { type: Schema.Types.ObjectId, ref: 'User', default: null },
   dueAt: { type: Date, default: null },
   resolutionSummary: { type: String, trim: true, maxlength: 2000, default: '' },
