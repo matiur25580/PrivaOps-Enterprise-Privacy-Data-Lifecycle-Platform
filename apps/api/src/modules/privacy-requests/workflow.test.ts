@@ -31,14 +31,23 @@ describe('privacy request lifecycle', () => {
 
 describe('privacy request separation of duties', () => {
   it('prevents a requester from fulfilling their own request', () => {
-    expect(canActorFulfillPrivacyRequest('verified', 'user-1', 'user-1')).toBe(false);
+    expect(canActorFulfillPrivacyRequest('verified', 'user-1', 'user-2', 'user-1')).toBe(false);
   });
 
   it('allows a different authorized actor to fulfill after identity verification', () => {
-    expect(canActorFulfillPrivacyRequest('verified', 'user-1', 'user-2')).toBe(true);
+    expect(canActorFulfillPrivacyRequest('verified', 'user-1', 'user-3', 'user-2')).toBe(true);
+  });
+
+  it('prevents the identity verifier from fulfilling the same request', () => {
+    expect(canActorFulfillPrivacyRequest('verified', 'user-1', 'user-2', 'user-2')).toBe(false);
+  });
+
+  it('requires a recorded verifier distinct from the requester', () => {
+    expect(canActorFulfillPrivacyRequest('verified', 'user-1', null, 'user-3')).toBe(false);
+    expect(canActorFulfillPrivacyRequest('verified', 'user-1', 'user-1', 'user-3')).toBe(false);
   });
 
   it('still requires verified identity for a different actor', () => {
-    expect(canActorFulfillPrivacyRequest('pending', 'user-1', 'user-2')).toBe(false);
+    expect(canActorFulfillPrivacyRequest('pending', 'user-1', 'user-3', 'user-2')).toBe(false);
   });
 });
