@@ -13,6 +13,7 @@ const transitions: Record<PrivacyRequestStatus, readonly PrivacyRequestStatus[]>
   closed: [],
 };
 
+// Keep request lifecycle changes within the explicitly allowed state-transition graph.
 export function canTransitionPrivacyRequestStatus(
   current: PrivacyRequestStatus,
   next: PrivacyRequestStatus,
