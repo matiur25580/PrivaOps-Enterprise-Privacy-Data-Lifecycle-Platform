@@ -58,6 +58,7 @@ export const authenticate: RequestHandler = async (request, response, next) => {
   next();
 };
 
+// Apply permission checks only after authentication has populated the verified organization role.
 export function requirePermission(permission: string): RequestHandler {
   return (request, response, next) => {
     const role = request.auth?.role;
