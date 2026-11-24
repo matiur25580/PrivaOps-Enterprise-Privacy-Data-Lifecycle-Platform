@@ -7,6 +7,7 @@ export function organizationRequestFilter(
   return { ...criteria, organizationId };
 }
 
+// Combine organization scope with requester ownership so users can only access their own requests.
 export function ownPrivacyRequestFilter(
   organizationId: string,
   userId: string,
