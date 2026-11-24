@@ -8,6 +8,7 @@ import { organizationScopeMatches } from './scope.js';
 
 const secret = new TextEncoder().encode(env.ACCESS_TOKEN_SECRET);
 
+// Validate token identity and re-check live account, membership, and organization status on each request.
 export const authenticate: RequestHandler = async (request, response, next) => {
   const header = request.header('authorization');
   const token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
